@@ -70,6 +70,13 @@ def fetch_orders_for_training() -> list[sqlite3.Row]:
         return cur.fetchall()
 
 
+def count_orders() -> int:
+    with connection() as conn:
+        cur = conn.execute("SELECT COUNT(*) AS c FROM orders")
+        row = cur.fetchone()
+        return int(row["c"]) if row else 0
+
+
 def fetch_orders_filtered(
     traffic: Optional[str] = None,
     weather: Optional[str] = None,

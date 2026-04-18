@@ -9,6 +9,7 @@ import charts
 import config
 import database as db
 import ml_model
+import seed_data
 
 app = Flask(__name__)
 
@@ -18,6 +19,29 @@ def ensure_app_ready():
     os.makedirs(os.path.dirname(config.MODEL_PATH), exist_ok=True)
     if not os.path.isfile(config.DATABASE_PATH):
         db.init_db()
+    _bootstrap_if_needed()
+
+
+def _bootstrap_if_needed() -> None:
+    """Optional startup bootstrap for fresh deployments (e.g. Render)."""
+    # Enabled by default; set BOOTSTRAP_ON_START=0 to disable.
+    bootstrap_enabled = os.environ.get("BOOTSTRAP_ON_START", "1") == "1"
+    if not bootstrap_enabled:
+        return
+    if os.path.isfile(config.MODEL_PATH):
+        return
+
+    orders_count = db.count_orders()
+    if orders_count < 10:
+        seed_count = int(os.environ.get("BOOTSTRAP_SEED_COUNT", "300"))
+        seed_data.seed(count=seed_count, seed=42)
+
+    try:
+        ml_model.train_and_save()
+    except ValueError:
+        # If data is still insufficient for any reason, app remains up and
+        # user can seed/train manually from scripts or UI later.
+        return
 
 
 @app.route("/")
@@ -189,4 +213,6 @@ def train_trigger():
 
 if __name__ == "__main__":
     ensure_app_ready()
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(debug=debug, host="0.0.0.0", port=port)

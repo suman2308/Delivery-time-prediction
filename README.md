@@ -102,6 +102,32 @@ pytest
 |----------|---------|
 | `DELIVERY_DB_PATH` | SQLite file path (default: `delivery.db` in project root) |
 | `DELIVERY_MODEL_PATH` | Saved model path (default: `models/delivery_regressor.joblib`) |
+| `BOOTSTRAP_ON_START` | `1` to auto-seed/train when model is missing (default `1`) |
+| `BOOTSTRAP_SEED_COUNT` | Synthetic rows used during bootstrap (default `300`) |
+
+## Deploy on Render
+
+This repo includes `render.yaml` for one-click deployment.
+
+### Steps
+
+1. Push this repo to GitHub.
+2. In Render, choose **New +** -> **Blueprint**.
+3. Select this repository.
+4. Deploy.
+
+Render will:
+- install dependencies from `requirements.txt`
+- run `gunicorn app:app`
+- mount persistent disk at `/var/data`
+- store DB/model in persistent paths:
+  - `/var/data/delivery.db`
+  - `/var/data/models/delivery_regressor.joblib`
+
+On first deploy, if the model file is missing, app startup bootstraps automatically:
+- create tables
+- seed synthetic orders (if needed)
+- train model
 
 ## Project layout (main files)
 
