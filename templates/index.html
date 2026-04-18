@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Predict — Smart Delivery{% endblock %}
+{% block content %}
+<section class="hero-card">
+  <h1>Predict Delivery Time</h1>
+  <p>Interactive estimator powered by your SQL order history and a trained regression model.</p>
+  <div class="kpis">
+    {% if request.args.get('trained') %}
+    <span class="tag ok">Model retrained</span>
+    <span class="tag">MAE {{ request.args.get('mae') }}</span>
+    <span class="tag">RMSE {{ request.args.get('rmse') }}</span>
+    {% endif %}
+    {% if metrics %}
+    <span class="tag ok">Rows: {{ metrics.rows }}</span>
+    <span class="tag">MAE: {{ "%.2f"|format(metrics.mae) }} min</span>
+    <span class="tag">RMSE: {{ "%.2f"|format(metrics.rmse) }} min</span>
+    {% endif %}
+  </div>
+</section>
+
+<div class="row">
+  <div class="card">
+    <h2>Prediction Inputs</h2>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    {% if not metrics %}
+    <p class="error">No trained model yet. Run <code>python seed_data.py</code> then <code>python train_model.py</code>.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('predict_form') }}" id="predictForm">
+      <label for="distance">Distance (km)</label>
+      <input id="distance" name="distance" type="number" step="0.1" min="0.1" value="6.0" required>
+
+      <label for="order_time">Hour of day: <span id="hourPreview">14:00</span></label>
+      <input id="order_time" name="order_time" type="range" min="0" max="23" value="14" required>
+
+      <div class="row-3">
+        <div>
+          <label for="traffic_level">Traffic</label>
+          <select id="traffic_level" name="traffic_level">
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+          </select>
+        </div>
+        <div>
+          <label for="weather">Weather</label>
+          <select id="weather" name="weather">
+            <option selected>Clear</option>
+            <option>Rainy</option>
+          </select>
+        </div>
+        <div>
+          <label for="actual_delivery">Actual time (min)</label>
+          <input id="actual_delivery" name="actual_delivery" type="number" step="0.1" min="1" placeholder="If saving order">
+        </div>
+      </div>
+
+      <label class="inline" style="margin-top:.8rem;">
+        <input type="checkbox" id="save_order" name="save_order" style="width:auto;">
+        Save as completed order for analytics
+      </label>
+
+      <div class="inline" style="gap:.55rem;flex-wrap:wrap;">
+        <button type="submit">Predict &amp; Store</button>
+        <button type="submit" formaction="{{ url_for('train_trigger') }}" formmethod="post" class="btn-muted">Retrain Model</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Live Insight</h2>
+    <p class="muted">This preview updates instantly as you change inputs.</p>
+    <div class="kpis">
+      <span class="tag" id="hintDistance">Distance: 6.0 km</span>
+      <span class="tag" id="hintTraffic">Traffic: Medium</span>
+      <span class="tag" id="hintWeather">Weather: Clear</span>
+    </div>
+    <p class="hero" style="margin-top:1rem;">Tip: high traffic + rainy weather + peak hour usually increases predicted minutes significantly.</p>
+    <hr style="border-color:var(--border);opacity:.45;margin:1rem 0;">
+    <details style="margin-top:.2rem;">
+      <summary style="cursor:pointer; user-select:none;">
+        <span class="tag">API Quick Use (click)</span>
+      </summary>
+      <div style="margin-top:.6rem;">
+        <p class="muted"><code>POST /api/predict</code> with JSON:</p>
+        <p class="muted"><code>{"distance": 8, "order_time": 18, "traffic_level": "High", "weather": "Rainy"}</code></p>
+        <p class="muted">This is shown to help you demo the real-time API endpoint quickly.</p>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var hour = document.getElementById("order_time");
+    var hourPreview = document.getElementById("hourPreview");
+    var distance = document.getElementById("distance");
+    var traffic = document.getElementById("traffic_level");
+    var weather = document.getElementById("weather");
+    var saveOrder = document.getElementById("save_order");
+    var actual = document.getElementById("actual_delivery");
+    var hintDistance = document.getElementById("hintDistance");
+    var hintTraffic = document.getElementById("hintTraffic");
+    var hintWeather = document.getElementById("hintWeather");
+
+    function pad(n) { return n < 10 ? "0" + n : String(n); }
+    function update() {
+      hourPreview.textContent = pad(Number(hour.value)) + ":00";
+      hintDistance.textContent = "Distance: " + (distance.value || "0") + " km";
+      hintTraffic.textContent = "Traffic: " + traffic.value;
+      hintWeather.textContent = "Weather: " + weather.value;
+      actual.required = saveOrder.checked;
+      if (saveOrder.checked) {
+        actual.placeholder = "Required now";
+      } else {
+        actual.placeholder = "If saving order";
+      }
+    }
+
+    [hour, distance, traffic, weather, saveOrder].forEach(function (el) {
+      el.addEventListener("input", update);
+      el.addEventListener("change", update);
+    });
+    update();
+  })();
+</script>
+{% endblock %}

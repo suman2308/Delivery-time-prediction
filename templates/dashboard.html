@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Smart Delivery{% endblock %}
+{% block content %}
+<section class="hero-card">
+  <h1>Analytics Dashboard</h1>
+  <p>Visual overview of model behavior and delivery patterns from your latest data.</p>
+</section>
+
+<div class="card">
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% else %}
+  <div class="row">
+    <div>
+      <h2>Delivery Time vs Distance</h2>
+      <img class="chart" src="{{ url_for('static', filename='plots/' + plots.distance) }}" alt="Distance vs time">
+    </div>
+    <div>
+      <h2>Traffic Impact</h2>
+      <img class="chart" src="{{ url_for('static', filename='plots/' + plots.traffic) }}" alt="Traffic impact">
+    </div>
+  </div>
+  <div style="margin-top:1rem;">
+    <h2>Predicted vs Actual</h2>
+    <img class="chart" src="{{ url_for('static', filename='plots/' + plots.compare) }}" alt="Pred vs actual" style="max-width:640px;">
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Result — Smart Delivery{% endblock %}
+{% block content %}
+<section class="hero-card">
+  <h1>Prediction Ready</h1>
+  <p>Your new estimate has been calculated and logged to the database.</p>
+</section>
+
+<div class="card">
+  <h2>Estimated delivery time</h2>
+  <p style="font-size:2.4rem;font-weight:800;margin:.25rem 0;color:var(--accent);">
+    {{ "%.2f"|format(predicted) }}
+    <span class="muted" style="font-size:1rem;">minutes</span>
+  </p>
+  <div class="kpis">
+    <span class="tag">Distance: {{ distance }} km</span>
+    <span class="tag">Hour: {{ order_time }}:00</span>
+    <span class="tag">Traffic: {{ traffic }}</span>
+    <span class="tag">Weather: {{ weather }}</span>
+  </div>
+  <div style="margin-top:.8rem;">
+    {% if order_id %}
+    <span class="tag ok">Saved order_id {{ order_id }} and linked prediction</span>
+    {% else %}
+    <span class="tag warn">Prediction stored only (no new order link)</span>
+    {% endif %}
+  </div>
+  <div class="inline" style="gap:.6rem; margin-top:.8rem; flex-wrap:wrap;">
+    <a class="btn" href="{{ url_for('index') }}">Make Another Prediction</a>
+    <a class="btn btn-muted" href="{{ url_for('dashboard') }}">Open Dashboard</a>
+    <a class="btn btn-muted" href="{{ url_for('admin') }}">View Admin Table</a>
+  </div>
+</div>
+{% endblock %}
