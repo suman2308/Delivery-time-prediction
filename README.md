@@ -119,15 +119,16 @@ This repo includes `render.yaml` for one-click deployment.
 Render will:
 - install dependencies from `requirements.txt`
 - run `gunicorn app:app`
-- mount persistent disk at `/var/data`
-- store DB/model in persistent paths:
-  - `/var/data/delivery.db`
-  - `/var/data/models/delivery_regressor.joblib`
+- use free-tier compatible temporary paths:
+  - `/tmp/delivery.db`
+  - `/tmp/models/delivery_regressor.joblib`
 
 On first deploy, if the model file is missing, app startup bootstraps automatically:
 - create tables
 - seed synthetic orders (if needed)
 - train model
+
+> Note for free tier: `/tmp` is ephemeral. Data/model can reset on restart/redeploy.
 
 ## Project layout (main files)
 

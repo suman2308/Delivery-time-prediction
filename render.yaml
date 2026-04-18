@@ -8,14 +8,10 @@ services:
     autoDeploy: true
     envVars:
       - key: DELIVERY_DB_PATH
-        value: /var/data/delivery.db
+        value: /tmp/delivery.db
       - key: DELIVERY_MODEL_PATH
-        value: /var/data/models/delivery_regressor.joblib
+        value: /tmp/models/delivery_regressor.joblib
       - key: BOOTSTRAP_ON_START
         value: "1"
       - key: BOOTSTRAP_SEED_COUNT
         value: "300"
-    disk:
-      name: delivery-data
-      mountPath: /var/data
-      sizeGB: 1
