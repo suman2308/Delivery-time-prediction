@@ -105,30 +105,6 @@ pytest
 | `BOOTSTRAP_ON_START` | `1` to auto-seed/train when model is missing (default `1`) |
 | `BOOTSTRAP_SEED_COUNT` | Synthetic rows used during bootstrap (default `300`) |
 
-## Deploy on Render
-
-This repo includes `render.yaml` for one-click deployment.
-
-### Steps
-
-1. Push this repo to GitHub.
-2. In Render, choose **New +** -> **Blueprint**.
-3. Select this repository.
-4. Deploy.
-
-Render will:
-- install dependencies from `requirements.txt`
-- run `gunicorn app:app`
-- use free-tier compatible temporary paths:
-  - `/tmp/delivery.db`
-  - `/tmp/models/delivery_regressor.joblib`
-
-On first deploy, if the model file is missing, app startup bootstraps automatically:
-- create tables
-- seed synthetic orders (if needed)
-- train model
-
-> Note for free tier: `/tmp` is ephemeral. Data/model can reset on restart/redeploy.
 
 ## Project layout (main files)
 
