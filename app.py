@@ -1,4 +1,4 @@
-"""Flask web UI, JSON prediction API, admin filters, and analytics dashboard."""
+"""Flask Application Server & Endpoint Controllers."""
 from __future__ import annotations
 
 import os
@@ -23,12 +23,9 @@ def ensure_app_ready():
 
 
 def _bootstrap_if_needed() -> None:
-    """Optional startup bootstrap for fresh deployments (e.g. Render)."""
-    # Enabled by default; set BOOTSTRAP_ON_START=0 to disable.
+    """Startup bootstrap for fresh deployments."""
     bootstrap_enabled = os.environ.get("BOOTSTRAP_ON_START", "1") == "1"
-    if not bootstrap_enabled:
-        return
-    if os.path.isfile(config.MODEL_PATH):
+    if not bootstrap_enabled or os.path.isfile(config.MODEL_PATH):
         return
 
     orders_count = db.count_orders()
@@ -39,8 +36,6 @@ def _bootstrap_if_needed() -> None:
     try:
         ml_model.train_and_save()
     except ValueError:
-        # If data is still insufficient for any reason, app remains up and
-        # user can seed/train manually from scripts or UI later.
         return
 
 
@@ -65,7 +60,8 @@ def predict_form():
         traffic = request.form["traffic_level"]
         weather = request.form["weather"]
     except (KeyError, TypeError, ValueError):
-        return "Invalid form data", 400
+        return "Invalid form input parameters.", 400
+
     save_order = request.form.get("save_order") == "on"
     actual_raw = (request.form.get("actual_delivery") or "").strip()
 
@@ -80,15 +76,13 @@ def predict_form():
     order_id = None
     if save_order:
         if not actual_raw:
-            return (
-                "When saving an order, provide actual delivery time (minutes).",
-                400,
-            )
+            return "Provide actual delivery duration in minutes to save an order.", 400
         try:
             actual = float(actual_raw)
         except ValueError:
-            return "Actual delivery time must be a number.", 400
+            return "Actual delivery time must be numeric.", 400
         order_id = db.insert_order(distance, order_time, traffic, weather, actual)
+
     db.insert_prediction(order_id, predicted)
     return render_template(
         "result.html",
@@ -111,11 +105,13 @@ def api_predict():
         traffic = str(payload["traffic_level"])
         weather = str(payload["weather"])
     except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "distance, order_time, traffic_level, weather required"}), 400
+        return jsonify({"error": "Fields 'distance', 'order_time', 'traffic_level', and 'weather' are required."}), 400
+
     try:
         pipe = ml_model.load_pipeline()
     except FileNotFoundError as e:
         return jsonify({"error": str(e)}), 503
+
     predicted = ml_model.predict_delivery(
         distance, order_time, traffic, weather, pipeline=pipe
     )
@@ -125,10 +121,11 @@ def api_predict():
             order_id = int(order_id)
         except (TypeError, ValueError):
             order_id = None
+
     prediction_id = db.insert_prediction(order_id, predicted)
     return jsonify(
         {
-            "predicted_time_minutes": round(predicted, 3),
+            "predicted_time_minutes": round(predicted, 2),
             "prediction_id": prediction_id,
             "order_id": order_id,
         }
@@ -144,6 +141,7 @@ def admin():
     max_d = request.args.get("max_distance")
     min_distance = float(min_d) if min_d not in (None, "") else None
     max_distance = float(max_d) if max_d not in (None, "") else None
+
     rows = db.fetch_orders_filtered(
         traffic=traffic,
         weather=weather,
@@ -169,9 +167,10 @@ def dashboard():
     except FileNotFoundError:
         return render_template(
             "dashboard.html",
-            error="Train the model first: python train_model.py",
+            error="Model pipeline not trained. Run training via home page or CLI script.",
             plots=None,
         ), 503
+
     p1 = charts.plot_delivery_vs_distance()
     p2 = charts.plot_traffic_impact()
     p3 = charts.plot_pred_vs_actual()
@@ -185,7 +184,7 @@ def dashboard():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "healthy"})
 
 
 @app.route("/metrics")
@@ -200,12 +199,11 @@ def metrics_json():
 
 @app.route("/train", methods=["POST"])
 def train_trigger():
-    """Dev convenience: retrain from UI (optional)."""
     ensure_app_ready()
     try:
         r = ml_model.train_and_save()
         return redirect(
-            url_for("index", trained=1, mae=f"{r.mae:.4f}", rmse=f"{r.rmse:.4f}")
+            url_for("index", trained=1, mae=f"{r.mae:.2f}", rmse=f"{r.rmse:.2f}")
         )
     except ValueError as e:
         return str(e), 400

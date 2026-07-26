@@ -1,131 +1,126 @@
-# Smart Delivery Time Prediction
+# Smart Delivery Time Prediction Platform
 
-End-to-end system that predicts delivery time from historical order data: **SQLite** storage, **scikit-learn** regression, **Flask** web UI + JSON API, **matplotlib** analytics, and **pytest** tests.
+A machine learning application for predicting order delivery times based on route distance, departure hour, traffic conditions, and weather. Built with **Python**, **Flask**, **scikit-learn**, **SQLite**, and modern web design principles.
 
-## Features
+---
 
-- **Database**: `orders` (features + actual delivery time) and `predictions` (model output, optional link to an order).
-- **ML**: Linear regression with one-hot encoded traffic/weather; hold-out **MAE** and **RMSE**; model saved with **joblib**.
-- **Web**: Predict form, analytics dashboard, admin panel with SQL filters, theme toggle + sidebar UI.
-- **API**: `POST /api/predict` for real-time predictions.
-- **CLI**: Interactive prompts (`python cli.py`).
+## Key Features
 
-## Tech stack
+- **Predictive Engine**: Linear regression pipeline using scikit-learn with categorical feature encoding for traffic density and weather conditions.
+- **RESTful API**: Clean JSON endpoints (`/api/predict`, `/metrics`, `/health`) for easy system integration.
+- **Interactive Analytics Dashboard**: Visualizations of feature correlations, traffic impacts, and prediction error margins powered by Matplotlib.
+- **Order Database Explorer**: Filter and inspect historical delivery records with SQL parameters.
+- **Dynamic Glassmorphic UI**: Ambient UI with light/dark theme switching and responsive controls.
 
-Python · Flask · SQLite · pandas · scikit-learn · matplotlib · joblib · pytest
+---
 
-## Prerequisites
+## Tech Stack
 
-- Python **3.10+** recommended  
-- `pip`
+- **Backend**: Python 3.10+, Flask, SQLite3, Joblib
+- **Machine Learning**: scikit-learn, pandas, NumPy
+- **Analytics & Visuals**: Matplotlib
+- **Frontend**: Modern Vanilla CSS (Glassmorphism, Design Tokens), JavaScript (ES6)
+- **Testing**: pytest
 
-## Quick start (local)
+---
 
-From the project root:
+## Quick Start (Local Setup)
+
+### 1. Environment Setup
 
 ```bash
 python -m venv .venv
 ```
 
-**Windows (PowerShell):**
+**Activate Environment:**
+- **Windows (PowerShell):** `.\.venv\Scripts\Activate.ps1`
+- **macOS / Linux:** `source .venv/bin/activate`
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-**macOS / Linux:**
-
-```bash
-source .venv/bin/activate
-```
-
-Install dependencies:
+### 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Create tables and seed synthetic orders (default 400 rows; change with `--count`):
+### 3. Initialize Database & Model
 
+Generate initial dataset (400 synthetic orders):
 ```bash
 python seed_data.py
 ```
 
-Train the model and save it under `models/delivery_regressor.joblib`:
-
+Train regression model:
 ```bash
 python train_model.py
 ```
 
-Run the web app:
+### 4. Run Application
 
 ```bash
 python app.py
 ```
 
-Open **http://127.0.0.1:5000** — use **Predict**, **Dashboard**, and **Admin**.
+Access the application in your browser at `http://127.0.0.1:5000`.
 
-## CLI
+---
 
+## API Usage
+
+### Predict Delivery Time (`POST /api/predict`)
+
+**Request:**
 ```bash
-python cli.py
+curl -X POST http://127.0.0.1:5000/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{"distance": 6.5, "order_time": 14, "traffic_level": "Medium", "weather": "Clear"}'
 ```
 
-Follow prompts for distance, hour, traffic, and weather. Optionally log a prediction row without a new order.
-
-## API example
-
-```bash
-curl -X POST http://127.0.0.1:5000/api/predict ^
-  -H "Content-Type: application/json" ^
-  -d "{\"distance\": 8, \"order_time\": 18, \"traffic_level\": \"High\", \"weather\": \"Rainy\"}"
+**Response:**
+```json
+{
+  "order_id": null,
+  "prediction_id": 1,
+  "predicted_time_minutes": 31.45
+}
 ```
 
-On macOS/Linux use `\` instead of `^` for line continuation. Optional field: `"order_id": <existing id>` to link the prediction.
+---
 
-Other useful endpoints:
+## Testing
 
-- `GET /health` — health check  
-- `GET /metrics` — MAE / RMSE JSON (requires trained model)
-
-## Tests
-
+Run unit & integration tests:
 ```bash
 pytest
 ```
 
-(`pytest.ini` sets `pythonpath = .` so imports resolve.)
+---
 
-## Environment variables (optional)
+## Project Architecture
 
-| Variable | Purpose |
-|----------|---------|
-| `DELIVERY_DB_PATH` | SQLite file path (default: `delivery.db` in project root) |
-| `DELIVERY_MODEL_PATH` | Saved model path (default: `models/delivery_regressor.joblib`) |
-| `BOOTSTRAP_ON_START` | `1` to auto-seed/train when model is missing (default `1`) |
-| `BOOTSTRAP_SEED_COUNT` | Synthetic rows used during bootstrap (default `300`) |
+```
+├── app.py           # Flask server & route handlers
+├── ml_model.py      # Regression pipeline & model inference
+├── database.py      # SQLite connection & query handlers
+├── charts.py        # Analytics plot generator
+├── seed_data.py     # Data generation utilities
+├── train_model.py   # Model training script
+├── cli.py           # CLI interactive predictor
+├── schema.sql       # Database schema setup
+├── static/          # CSS design tokens & client JavaScript
+└── templates/       # Glassmorphic HTML templates
+```
 
+---
 
-## Project layout (main files)
+## Deploy on Render
 
-| Path | Role |
-|------|------|
-| `schema.sql` | Table definitions |
-| `database.py` | SQLite access, filters, inserts |
-| `seed_data.py` | Synthetic data generator |
-| `ml_model.py` | Train / load / predict |
-| `train_model.py` | CLI training entry |
-| `app.py` | Flask application |
-| `charts.py` | Matplotlib figures for dashboard |
-| `cli.py` | Interactive CLI |
-| `templates/` | HTML UI |
-| `tests/` | Pytest suite |
+This repo includes `render.yaml` for deployment:
+1. Push repository to GitHub.
+2. In Render, select **New +** -> **Blueprint**.
+3. Select this repository to deploy automatically.
 
-## Notes
-
-- `*.db`, `models/*.joblib`, and generated plot PNGs under `static/plots/` are **gitignored** — run seed + train locally after clone.
-- The dev server (`python app.py`) is for **local development** only; use a production WSGI server (e.g. gunicorn) for deployment.
+---
 
 ## License
 
-Use and modify freely for learning and portfolio projects.
+Distributed under the MIT License.

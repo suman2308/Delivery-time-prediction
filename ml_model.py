@@ -1,4 +1,4 @@
-"""Train linear regression on SQL data, persist with joblib, expose predict + metrics."""
+"""Train regression model on SQL order history and serialize pipeline."""
 from __future__ import annotations
 
 import os
@@ -15,9 +15,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-import database as db
 import config
-
+import database as db
 
 FEATURE_COLUMNS = ["distance", "order_time", "traffic_level", "weather"]
 TARGET = "delivery_time"
@@ -55,7 +54,7 @@ def rows_to_dataframe(rows) -> pd.DataFrame:
 def train_and_save(test_size: float = 0.2, random_state: int = 42) -> TrainResult:
     rows = db.fetch_orders_for_training()
     if len(rows) < 10:
-        raise ValueError("Need at least 10 orders in the database to train.")
+        raise ValueError("At least 10 historical orders are required to train model.")
     df = rows_to_dataframe(rows)
     X = df[FEATURE_COLUMNS]
     y = df[TARGET]
@@ -76,7 +75,7 @@ def train_and_save(test_size: float = 0.2, random_state: int = 42) -> TrainResul
 def load_pipeline() -> Pipeline:
     if not os.path.isfile(config.MODEL_PATH):
         raise FileNotFoundError(
-            f"Model not found at {config.MODEL_PATH}. Run: python train_model.py"
+            f"Model not initialized at {config.MODEL_PATH}. Train model via UI or CLI."
         )
     return joblib.load(config.MODEL_PATH)
 
@@ -100,11 +99,10 @@ def predict_delivery(
         ]
     )
     out = pipe.predict(X)
-    return float(np.maximum(out[0], 1.0))
+    return float(np.maximum(out[0], 2.0))
 
 
 def evaluate_on_db(pipeline: Optional[Pipeline] = None) -> tuple[float, float, int]:
-    """MAE / RMSE on all stored orders (in-sample diagnostic)."""
     pipe = pipeline or load_pipeline()
     rows = db.fetch_orders_for_training()
     df = rows_to_dataframe(rows)

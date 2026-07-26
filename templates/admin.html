@@ -1,74 +1,79 @@
 {% extends "base.html" %}
-{% block title %}Admin — Orders{% endblock %}
+{% block title %}Database — Smart Delivery Platform{% endblock %}
 {% block content %}
 <section class="hero-card">
-  <h1>Admin Orders Explorer</h1>
-  <p>Interactive SQL filters for quickly inspecting historical deliveries.</p>
+  <h1>Order History Explorer</h1>
+  <p>Filter historical orders and evaluate ground-truth metrics across traffic and weather segments.</p>
 </section>
 
 <div class="card">
-  <h2>Filter data</h2>
+  <h2>Filter Records</h2>
   <form method="get">
     <div class="row-3">
       <div>
-        <label for="traffic">Traffic</label>
+        <label for="traffic">Traffic Level</label>
         <select id="traffic" name="traffic">
-          <option value="">Any</option>
+          <option value="">All Traffic Levels</option>
           <option value="Low" {% if traffic == 'Low' %}selected{% endif %}>Low</option>
           <option value="Medium" {% if traffic == 'Medium' %}selected{% endif %}>Medium</option>
           <option value="High" {% if traffic == 'High' %}selected{% endif %}>High</option>
         </select>
       </div>
       <div>
-        <label for="weather">Weather</label>
+        <label for="weather">Weather Condition</label>
         <select id="weather" name="weather">
-          <option value="">Any</option>
+          <option value="">All Weather Types</option>
           <option value="Clear" {% if weather == 'Clear' %}selected{% endif %}>Clear</option>
           <option value="Rainy" {% if weather == 'Rainy' %}selected{% endif %}>Rainy</option>
         </select>
       </div>
-      <div></div>
       <div>
-        <label for="min_distance">Min distance (km)</label>
+        <label for="min_distance">Min Distance (km)</label>
         <input id="min_distance" name="min_distance" type="number" step="0.1" value="{{ min_distance }}">
       </div>
       <div>
-        <label for="max_distance">Max distance (km)</label>
+        <label for="max_distance">Max Distance (km)</label>
         <input id="max_distance" name="max_distance" type="number" step="0.1" value="{{ max_distance }}">
       </div>
-      <div class="inline" style="align-self:end; gap:.5rem;">
-        <button type="submit">Apply Filters</button>
-        <a class="btn btn-muted" href="{{ url_for('admin') }}">Reset</a>
-      </div>
+    </div>
+    <div class="inline" style="gap:0.75rem; margin-top:1rem;">
+      <button type="submit">Apply Filters</button>
+      <a class="btn btn-muted" href="{{ url_for('admin') }}">Reset</a>
     </div>
   </form>
 </div>
 
 <div class="card table-wrap">
-  <h2>Results <span class="tag">{{ rows|length }} rows</span></h2>
+  <div class="inline" style="justify-content:space-between; margin-bottom:1rem;">
+    <h2>Order Records</h2>
+    <span class="tag ok">{{ rows|length }} records found</span>
+  </div>
   <table>
     <thead>
       <tr>
         <th>ID</th>
         <th>Distance</th>
-        <th>Hour</th>
+        <th>Departure Hour</th>
         <th>Traffic</th>
         <th>Weather</th>
-        <th>Actual (min)</th>
+        <th>Actual Time</th>
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td>#{{ r['order_id'] }}</td>
+        <td><strong>#{{ r['order_id'] }}</strong></td>
         <td>{{ r['distance'] }} km</td>
         <td>{{ r['order_time'] }}:00</td>
         <td><span class="tag">{{ r['traffic_level'] }}</span></td>
         <td><span class="tag">{{ r['weather'] }}</span></td>
-        <td><strong>{{ r['delivery_time'] }}</strong></td>
+        <td><strong style="color:var(--accent);">{{ r['delivery_time'] }} mins</strong></td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">No rows match current filters.</td></tr>
+      <tr>
+        <td colspan="6" class="muted" style="text-align:center; padding:2rem;">No orders match the specified filter criteria.</td>
+      </tr>
+      {% else %}
       {% endfor %}
     </tbody>
   </table>

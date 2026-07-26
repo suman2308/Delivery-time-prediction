@@ -1,4 +1,4 @@
-"""SQLite access: schema init, orders CRUD/filtering, prediction logging."""
+"""Database schema & SQLite access layer for Smart Delivery platform."""
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -82,7 +82,7 @@ def fetch_orders_filtered(
     weather: Optional[str] = None,
     min_distance: Optional[float] = None,
     max_distance: Optional[float] = None,
-    limit: int = 200,
+    limit: int = 250,
 ) -> list[sqlite3.Row]:
     clauses: list[str] = []
     params: list[Any] = []
@@ -112,6 +112,22 @@ def fetch_predictions_with_orders(limit: int = 500) -> list[sqlite3.Row]:
             """
             SELECT p.prediction_id, p.order_id, p.predicted_time,
                    o.distance, o.order_time, o.traffic_level, o.weather, o.delivery_time
+            FROM predictions p
+            LEFT JOIN orders o ON o.order_id = p.order_id
+            ORDER BY p.prediction_id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return cur.fetchall()
+
+
+def fetch_recent_predictions(limit: int = 10) -> list[sqlite3.Row]:
+    with connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT p.prediction_id, p.order_id, p.predicted_time, p.created_at,
+                   o.distance, o.order_time, o.traffic_level, o.weather
             FROM predictions p
             LEFT JOIN orders o ON o.order_id = p.order_id
             ORDER BY p.prediction_id DESC

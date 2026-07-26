@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Smart Delivery{% endblock %}
+{% block title %}Analytics — Smart Delivery Platform{% endblock %}
 {% block content %}
 <section class="hero-card">
-  <h1>Analytics Dashboard</h1>
-  <p>Visual overview of model behavior and delivery patterns from your latest data.</p>
+  <h1>Analytics &amp; Performance</h1>
+  <p>Visual diagnostics of model regression behavior, traffic correlation, and error bounds.</p>
 </section>
 
 <div class="card">
@@ -12,17 +12,17 @@
   {% else %}
   <div class="row">
     <div>
-      <h2>Delivery Time vs Distance</h2>
-      <img class="chart" src="{{ url_for('static', filename='plots/' + plots.distance) }}" alt="Distance vs time">
+      <h2>Distance Impact Correlation</h2>
+      <img class="chart" src="{{ url_for('static', filename='plots/' + plots.distance) }}" alt="Distance vs Time">
     </div>
     <div>
-      <h2>Traffic Impact</h2>
-      <img class="chart" src="{{ url_for('static', filename='plots/' + plots.traffic) }}" alt="Traffic impact">
+      <h2>Traffic Level Impact</h2>
+      <img class="chart" src="{{ url_for('static', filename='plots/' + plots.traffic) }}" alt="Traffic Impact">
     </div>
   </div>
-  <div style="margin-top:1rem;">
-    <h2>Predicted vs Actual</h2>
-    <img class="chart" src="{{ url_for('static', filename='plots/' + plots.compare) }}" alt="Pred vs actual" style="max-width:640px;">
+  <div style="margin-top:1.5rem;">
+    <h2>Predicted vs. Actual Delivery Time</h2>
+    <img class="chart" src="{{ url_for('static', filename='plots/' + plots.compare) }}" alt="Predicted vs Actual" style="max-width:680px;">
   </div>
   {% endif %}
 </div>
