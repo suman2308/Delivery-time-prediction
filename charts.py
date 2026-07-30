@@ -1,14 +1,21 @@
-"""Generate dark-theme tailored matplotlib analytics plots for dashboard."""
+"""Generate dark-theme tailored matplotlib analytics plots for dashboard.
+
+Phase 5: All chart functions now draw from DTDC prediction audit data.
+The legacy synthetic-model chart functions are removed.
+"""
+from __future__ import annotations
+
 import os
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 import config
 import database as db
-import ml_model
 
 # Apply modern dark theme aesthetics to Matplotlib
 plt.style.use("dark_background")
@@ -23,106 +30,116 @@ def ensure_plots_dir() -> None:
     os.makedirs(config.PLOTS_DIR, exist_ok=True)
 
 
-def plot_delivery_vs_distance() -> str:
-    ensure_plots_dir()
-    rows = db.fetch_orders_for_training()
-    path = os.path.join(config.PLOTS_DIR, "distance_vs_time.png")
+def _rows_to_df(rows: list) -> pd.DataFrame:
+    """Convert SQLite Row list to DataFrame for charting."""
     if not rows:
-        _empty_chart("No order data available", path)
-        return path
-    df = ml_model.rows_to_dataframe(rows)
-
-    fig, ax = plt.subplots(figsize=(6.5, 4.2), facecolor=PLT_BG)
-    ax.set_facecolor(PLT_CARD)
-    
-    ax.scatter(df["distance"], df["delivery_time"], alpha=0.6, c=PLT_ACCENT, edgecolors="none", s=35)
-    ax.set_xlabel("Distance (km)", color=PLT_TEXT, fontsize=10)
-    ax.set_ylabel("Delivery Time (mins)", color=PLT_TEXT, fontsize=10)
-    ax.set_title("Delivery Time vs. Distance", color=PLT_TEXT, fontsize=12, fontweight="bold", pad=12)
-    ax.grid(True, linestyle="--", alpha=0.3, color=PLT_GRID)
-    ax.tick_params(colors=PLT_TEXT)
-    for spine in ax.spines.values():
-        spine.set_color(PLT_GRID)
-
-    plt.tight_layout()
-    plt.savefig(path, dpi=140, facecolor=fig.get_facecolor(), edgecolor="none")
-    plt.close()
-    return path
+        return pd.DataFrame()
+    data = [{k: r[k] for k in r.keys()} for r in rows]
+    return pd.DataFrame(data)
 
 
-def plot_traffic_impact() -> str:
+def plot_mode_impact() -> str:
+    """Bar chart: average predicted delivery days by shipment mode."""
     ensure_plots_dir()
-    rows = db.fetch_orders_for_training()
-    path = os.path.join(config.PLOTS_DIR, "traffic_impact.png")
+    path = os.path.join(config.PLOTS_DIR, "mode_impact.png")
+    rows = db.fetch_dtdc_predictions(limit=10000)
     if not rows:
-        _empty_chart("No order data available", path)
+        _empty_chart("No DTDC predictions yet — submit a prediction first", path)
         return path
-    df = ml_model.rows_to_dataframe(rows)
-    order = ["Low", "Medium", "High"]
-    grouped = df.groupby("traffic_level")["delivery_time"].mean().reindex(order)
+    df = _rows_to_df(rows)
+    grouped = df.groupby("mode")["predicted_days"].mean().sort_values(ascending=False)
 
     fig, ax = plt.subplots(figsize=(6, 4.2), facecolor=PLT_BG)
     ax.set_facecolor(PLT_CARD)
-    
-    colors = ["#34d399", "#fbbf24", "#f87171"]
-    bars = ax.bar(grouped.index.astype(str), grouped.values, color=colors, width=0.55, edgecolor="none")
-    
-    # Value annotations on top of bars
+    colors_list = ["#38bdf8", "#818cf8", "#34d399"][:len(grouped)]
+    bars = ax.bar(
+        grouped.index.astype(str), grouped.values,
+        color=colors_list, width=0.55, edgecolor="none",
+    )
     for bar in bars:
         height = bar.get_height()
-        if not pd_isna(height):
-            ax.annotate(
-                f"{height:.1f} m",
-                xy=(bar.get_x() + bar.get_width() / 2, height),
-                xytext=(0, 4),
-                textcoords="offset points",
-                ha="center",
-                va="bottom",
-                color=PLT_TEXT,
-                fontsize=9,
-                fontweight="bold"
-            )
-
-    ax.set_ylabel("Avg Delivery Time (mins)", color=PLT_TEXT, fontsize=10)
-    ax.set_xlabel("Traffic Condition", color=PLT_TEXT, fontsize=10)
-    ax.set_title("Impact of Traffic Level", color=PLT_TEXT, fontsize=12, fontweight="bold", pad=12)
+        ax.annotate(
+            f"{height:.2f}d",
+            xy=(bar.get_x() + bar.get_width() / 2, height),
+            xytext=(0, 4), textcoords="offset points",
+            ha="center", va="bottom",
+            color=PLT_TEXT, fontsize=9, fontweight="bold",
+        )
+    ax.set_ylabel("Avg Predicted Days", color=PLT_TEXT, fontsize=10)
+    ax.set_xlabel("Shipment Mode", color=PLT_TEXT, fontsize=10)
+    ax.set_title("Predicted Duration by Mode", color=PLT_TEXT, fontsize=12, fontweight="bold", pad=12)
     ax.grid(True, axis="y", linestyle="--", alpha=0.3, color=PLT_GRID)
     ax.tick_params(colors=PLT_TEXT)
     for spine in ax.spines.values():
         spine.set_color(PLT_GRID)
-
     plt.tight_layout()
     plt.savefig(path, dpi=140, facecolor=fig.get_facecolor(), edgecolor="none")
     plt.close()
     return path
 
 
-def plot_pred_vs_actual() -> str:
+def plot_prediction_distribution() -> str:
+    """Histogram: distribution of predicted delivery days."""
     ensure_plots_dir()
-    rows = db.fetch_predictions_with_orders(limit=300)
-    pairs = [(r["predicted_time"], r["delivery_time"]) for r in rows if r["delivery_time"] is not None]
-    path = os.path.join(config.PLOTS_DIR, "pred_vs_actual.png")
-    if len(pairs) < 3:
-        _empty_chart("Requires predictions linked to completed orders", path)
+    path = os.path.join(config.PLOTS_DIR, "pred_distribution.png")
+    rows = db.fetch_dtdc_predictions(limit=10000)
+    if not rows:
+        _empty_chart("No DTDC predictions yet — submit a prediction first", path)
         return path
-    pred, actual = zip(*pairs)
+    df = _rows_to_df(rows)
+    values = df["predicted_days"].values
 
     fig, ax = plt.subplots(figsize=(6, 4.2), facecolor=PLT_BG)
     ax.set_facecolor(PLT_CARD)
-    
-    ax.scatter(actual, pred, alpha=0.6, c="#818cf8", edgecolors="none", s=35)
-    lim = max(max(actual), max(pred))
-    ax.plot([0, lim], [0, lim], linestyle="--", color="#9ca3af", alpha=0.6, label="Ideal (Exact Match)")
-    
-    ax.set_xlabel("Actual Time (mins)", color=PLT_TEXT, fontsize=10)
-    ax.set_ylabel("Predicted Time (mins)", color=PLT_TEXT, fontsize=10)
-    ax.set_title("Predicted vs. Actual Accuracy", color=PLT_TEXT, fontsize=12, fontweight="bold", pad=12)
-    ax.legend(facecolor=PLT_CARD, edgecolor=PLT_GRID, labelcolor=PLT_TEXT)
-    ax.grid(True, linestyle="--", alpha=0.3, color=PLT_GRID)
+    ax.hist(values, bins=30, color=PLT_ACCENT, edgecolor="none", alpha=0.8)
+    ax.axvline(
+        values.mean(), color="#fbbf24", linestyle="--", linewidth=1.5,
+        label=f"Mean: {values.mean():.2f}d",
+    )
+    ax.set_xlabel("Predicted Days", color=PLT_TEXT, fontsize=10)
+    ax.set_ylabel("Frequency", color=PLT_TEXT, fontsize=10)
+    ax.set_title("Distribution of Predicted Durations", color=PLT_TEXT, fontsize=12, fontweight="bold", pad=12)
+    ax.legend(facecolor=PLT_CARD, edgecolor=PLT_GRID, labelcolor=PLT_TEXT, fontsize=9)
+    ax.grid(True, axis="y", linestyle="--", alpha=0.3, color=PLT_GRID)
     ax.tick_params(colors=PLT_TEXT)
     for spine in ax.spines.values():
         spine.set_color(PLT_GRID)
+    plt.tight_layout()
+    plt.savefig(path, dpi=140, facecolor=fig.get_facecolor(), edgecolor="none")
+    plt.close()
+    return path
 
+
+def plot_top_routes() -> str:
+    """Horizontal bar chart: top origin-destination pairs by prediction count."""
+    ensure_plots_dir()
+    path = os.path.join(config.PLOTS_DIR, "top_routes.png")
+    rows = db.fetch_dtdc_predictions(limit=10000)
+    if not rows:
+        _empty_chart("No DTDC predictions yet — submit a prediction first", path)
+        return path
+    df = _rows_to_df(rows)
+    route_counts = (
+        df.groupby(["origin", "destination"])
+        .size()
+        .sort_values(ascending=False)
+        .head(10)
+    )
+    labels = [f"{o} \u2192 {d}" for o, d in route_counts.index]
+
+    fig, ax = plt.subplots(figsize=(6.5, 4.2), facecolor=PLT_BG)
+    ax.set_facecolor(PLT_CARD)
+    y_pos = range(len(labels))
+    ax.barh(y_pos, route_counts.values, color="#818cf8", edgecolor="none", height=0.6)
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels(labels, fontsize=8, color=PLT_TEXT)
+    ax.set_xlabel("Prediction Count", color=PLT_TEXT, fontsize=10)
+    ax.set_title("Top Routes by Prediction Volume", color=PLT_TEXT, fontsize=12, fontweight="bold", pad=12)
+    ax.grid(True, axis="x", linestyle="--", alpha=0.3, color=PLT_GRID)
+    ax.tick_params(colors=PLT_TEXT)
+    ax.invert_yaxis()
+    for spine in ax.spines.values():
+        spine.set_color(PLT_GRID)
     plt.tight_layout()
     plt.savefig(path, dpi=140, facecolor=fig.get_facecolor(), edgecolor="none")
     plt.close()

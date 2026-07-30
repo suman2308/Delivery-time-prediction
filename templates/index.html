@@ -1,88 +1,277 @@
 {% extends "base.html" %}
-{% block title %}Predict — Smart Delivery Platform{% endblock %}
+{% block title %}Predict — SmartDelivery Platform{% endblock %}
 {% block content %}
-  <section class="card">
-    <h1>Delivery Time Estimation</h1>
-    <p>Calculate precise delivery estimates using machine learning trained on real-time traffic, route distance, and weather inputs.</p>
-    <div class="kpis">
-      {% if request.args.get('trained') %}
-      <span class="tag ok">Model Retrained</span>
-      <span class="tag">MAE: {{ request.args.get('mae') }} min</span>
-      <span class="tag">RMSE: {{ request.args.get('rmse') }} min</span>
-      {% endif %}
-      {% if metrics %}
-      <span class="tag ok">Dataset: {{ metrics.rows }} orders</span>
-      <span class="tag">MAE: {{ "%.2f"|format(metrics.mae) }} min</span>
-      <span class="tag">RMSE: {{ "%.2f"|format(metrics.rmse) }} min</span>
-      {% endif %}
-    </div>
-  </section>
 
-<div class="row">
-  <div class="card">
-    <h2>Estimation Parameters</h2>
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    {% if not metrics %}
-    <p class="error">Model pipeline not trained yet. Click retrain below or seed initial dataset.</p>
+<!-- Hero Section -->
+<section class="hero-card">
+  <h1>Delivery Duration Estimator</h1>
+  <p>Predict delivery timelines with the DTDC-trained machine learning model. Enter your shipment details below and get an accurate duration estimate in seconds.</p>
+  <div class="tag-group mt-2">
+    {% if metrics %}
+    <span class="tag tag-info">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      {{ metrics.algorithm }} v{{ metrics.model_version }}
+    </span>
+    <span class="tag tag-success">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      MAE: {{ "%.3f"|format(metrics.mae) }} days
+    </span>
+    <span class="tag tag-info">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      R²: {{ "%.3f"|format(metrics.r2) }}
+    </span>
     {% endif %}
-    <form method="post" action="{{ url_for('predict_form') }}" id="predictForm">
-      <label for="distance">Delivery Distance (km)</label>
-      <input id="distance" name="distance" type="number" step="0.1" min="0.1" value="6.5" required>
+  </div>
+</section>
 
-      <label for="order_time">Order Departure Hour: <span id="hourPreview" style="color:var(--accent);font-weight:600;">14:00</span></label>
-      <input id="order_time" name="order_time" type="range" min="0" max="23" value="14" required>
+<!-- Error Alert -->
+{% if error %}
+<div class="alert alert-error" role="alert">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+  <span>{{ error }}</span>
+</div>
+{% endif %}
 
-      <div class="row-3">
-        <div>
-          <label for="traffic_level">Traffic Density</label>
-          <select id="traffic_level" name="traffic_level">
-            <option>Low</option>
-            <option selected>Medium</option>
-            <option>High</option>
-          </select>
-        </div>
-        <div>
-          <label for="weather">Weather State</label>
-          <select id="weather" name="weather">
-            <option selected>Clear</option>
-            <option>Rainy</option>
-          </select>
-        </div>
-        <div>
-          <label for="actual_delivery">Actual Duration (min)</label>
-          <input id="actual_delivery" name="actual_delivery" type="number" step="0.1" min="1" placeholder="Optional audit entry">
+<div class="grid-2">
+  <!-- Prediction Form -->
+  <div class="card">
+    <form method="post" action="{{ url_for('predict_form') }}" id="predictForm" novalidate>
+
+      <!-- Route Section -->
+      <div class="form-section">
+        <h3 class="form-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Route
+        </h3>
+        <div class="grid-2">
+          <div>
+            <label for="origin">Origin City</label>
+            <select id="origin" name="origin" required aria-describedby="originHelp">
+              <option value="">Select origin city</option>
+              <option value="Mumbai" selected>Mumbai</option>
+              <option value="Delhi">Delhi</option>
+              <option value="Bangalore">Bangalore</option>
+              <option value="Kolkata">Kolkata</option>
+              <option value="Chennai">Chennai</option>
+              <option value="Hyderabad">Hyderabad</option>
+              <option value="Ahmedabad">Ahmedabad</option>
+              <option value="Pune">Pune</option>
+              <option value="Jaipur">Jaipur</option>
+              <option value="Lucknow">Lucknow</option>
+              <option value="Surat">Surat</option>
+              <option value="Nagpur">Nagpur</option>
+              <option value="Indore">Indore</option>
+              <option value="Bhopal">Bhopal</option>
+              <option value="Chandigarh">Chandigarh</option>
+              <option value="Guwahati">Guwahati</option>
+              <option value="Bhubaneswar">Bhubaneswar</option>
+              <option value="Patna">Patna</option>
+              <option value="Varanasi">Varanasi</option>
+              <option value="Agra">Agra</option>
+              <option value="Ludhiana">Ludhiana</option>
+              <option value="Amritsar">Amritsar</option>
+              <option value="Dehradun">Dehradun</option>
+              <option value="Raipur">Raipur</option>
+              <option value="Ranchi">Ranchi</option>
+            </select>
+          </div>
+          <div>
+            <label for="destination">Destination City</label>
+            <select id="destination" name="destination" required>
+              <option value="">Select destination city</option>
+              <option value="Pune" selected>Pune</option>
+              <option value="Mumbai">Mumbai</option>
+              <option value="Delhi">Delhi</option>
+              <option value="Bangalore">Bangalore</option>
+              <option value="Kolkata">Kolkata</option>
+              <option value="Chennai">Chennai</option>
+              <option value="Hyderabad">Hyderabad</option>
+              <option value="Ahmedabad">Ahmedabad</option>
+              <option value="Jaipur">Jaipur</option>
+              <option value="Lucknow">Lucknow</option>
+              <option value="Surat">Surat</option>
+              <option value="Nagpur">Nagpur</option>
+              <option value="Indore">Indore</option>
+              <option value="Bhopal">Bhopal</option>
+              <option value="Chandigarh">Chandigarh</option>
+              <option value="Guwahati">Guwahati</option>
+              <option value="Bhubaneswar">Bhubaneswar</option>
+              <option value="Patna">Patna</option>
+              <option value="Varanasi">Varanasi</option>
+              <option value="Agra">Agra</option>
+              <option value="Ludhiana">Ludhiana</option>
+              <option value="Amritsar">Amritsar</option>
+              <option value="Dehradun">Dehradun</option>
+              <option value="Raipur">Raipur</option>
+              <option value="Ranchi">Ranchi</option>
+              <option value="Kochi">Kochi</option>
+              <option value="Thiruvananthapuram">Thiruvananthapuram</option>
+              <option value="Coimbatore">Coimbatore</option>
+              <option value="Vizag">Vizag</option>
+              <option value="Nashik">Nashik</option>
+              <option value="Aurangabad">Aurangabad</option>
+              <option value="Srinagar">Srinagar</option>
+              <option value="Jamshedpur">Jamshedpur</option>
+              <option value="Shimla">Shimla</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <label class="inline" style="margin-top:1rem; cursor:pointer;">
-        <input type="checkbox" id="save_order" name="save_order" style="width:auto; cursor:pointer;">
-        <span>Save completed trip record to database</span>
-      </label>
+      <!-- Shipment Details Section -->
+      <div class="form-section">
+        <h3 class="form-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Shipment Details
+        </h3>
+        <div class="grid-3">
+          <div>
+            <label for="booking_weekday">Booking Day</label>
+            <select id="booking_weekday" name="booking_weekday" required>
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday" selected>Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+              <option value="Sunday">Sunday</option>
+            </select>
+          </div>
+          <div>
+            <label for="mode">Shipment Mode</label>
+            <select id="mode" name="mode" required>
+              <option value="Surface" selected>Surface</option>
+              <option value="Express">Express</option>
+              <option value="Air Cargo">Air Cargo</option>
+            </select>
+            <p class="form-help" id="modeHelp">Surface: ground transport, Express: fast delivery, Air Cargo: air freight</p>
+          </div>
+          <div>
+            <label for="nature_of_consignment">Consignment Type</label>
+            <select id="nature_of_consignment" name="nature_of_consignment" required>
+              <option value="Dox" selected>Dox (Documents)</option>
+              <option value="Non-Dox">Non-Dox (Parcel)</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
-      <div class="inline" style="gap:0.75rem; flex-wrap:wrap; margin-top:1.2rem;">
-        <button type="submit">Calculate ETA</button>
-        <button type="submit" formaction="{{ url_for('train_trigger') }}" formmethod="post" class="btn-muted">Retrain Model</button>
+      <!-- Parcel Dimensions Section -->
+      <div class="form-section">
+        <h3 class="form-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          Parcel Dimensions
+        </h3>
+        <div class="grid-4">
+          <div>
+            <label for="total_pieces">Total Pieces</label>
+            <input id="total_pieces" name="total_pieces" type="number" min="1" value="1" required placeholder="e.g. 1">
+          </div>
+          <div>
+            <label for="actual_weight">Actual Weight (kg)</label>
+            <input id="actual_weight" name="actual_weight" type="number" step="0.01" min="0.01" value="1.0" required placeholder="e.g. 0.50">
+          </div>
+          <div>
+            <label for="volumetric_weight">Vol. Weight (kg)</label>
+            <input id="volumetric_weight" name="volumetric_weight" type="number" step="0.01" min="0.01" value="1.0" required placeholder="e.g. 0.80">
+            <p class="form-help">Length × Width × Height ÷ 5000</p>
+          </div>
+          <div>
+            <label for="chargeable_weight">Chargeable Wt. (kg)</label>
+            <input id="chargeable_weight" name="chargeable_weight" type="number" step="0.01" min="0.01" value="1.0" required placeholder="e.g. 0.50">
+            <p class="form-help">Higher of actual &amp; volumetric</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="flex gap-2 mt-2">
+        <button type="submit" id="predictBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="btnText">Predict Duration</span>
+        </button>
       </div>
     </form>
   </div>
 
-  <div class="card">
-    <h2>Live Environmental Simulation</h2>
-    <p class="muted">Dynamic simulation reacts to your selected departure hour and weather conditions.</p>
+  <!-- Live Shipment Summary Panel -->
+  <div>
+    <div class="card">
+      <h3 class="form-section-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Shipment Summary
+      </h3>
+      <p class="text-muted" style="font-size:0.875rem;">Review your shipment parameters in real time.</p>
 
-    <div class="kpis" style="margin-top:1rem;">
-      <span class="tag" id="hintDistance">Distance: 6.5 km</span>
-      <span class="tag" id="hintTraffic">Traffic: Medium</span>
-      <span class="tag" id="hintWeather">Weather: Clear</span>
-      <span class="tag" id="hintSky">Time: Day</span>
+      <!-- Route Preview -->
+      <div class="detail-item mb-2" style="background:var(--surface);">
+        <dt>Route</dt>
+        <dd style="font-size:1.05rem;font-weight:600;">
+          <span id="previewOrigin">Mumbai</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <span id="previewDest">Pune</span>
+        </dd>
+      </div>
+
+      <div class="detail-grid mt-2">
+        <div class="detail-item">
+          <dt>Mode</dt>
+          <dd id="previewMode">Surface</dd>
+        </div>
+        <div class="detail-item">
+          <dt>Type</dt>
+          <dd id="previewType">Dox</dd>
+        </div>
+        <div class="detail-item">
+          <dt>Pieces</dt>
+          <dd id="previewPieces">1</dd>
+        </div>
+        <div class="detail-item">
+          <dt>Booking Day</dt>
+          <dd id="previewDay">Wednesday</dd>
+        </div>
+      </div>
+
+      <div class="detail-grid mt-1">
+        <div class="detail-item">
+          <dt>Actual Wt.</dt>
+          <dd id="previewActWt">1.00 kg</dd>
+        </div>
+        <div class="detail-item">
+          <dt>Vol. Wt.</dt>
+          <dd id="previewVolWt">1.00 kg</dd>
+        </div>
+        <div class="detail-item">
+          <dt>Chargeable</dt>
+          <dd id="previewChgWt">1.00 kg</dd>
+        </div>
+      </div>
     </div>
 
-    <div style="margin-top:1.5rem; padding:1rem; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border);">
-      <h3 style="margin:0 0 0.4rem; font-size:0.9rem; color:var(--accent);">REST API Access</h3>
-      <p class="muted" style="margin:0; font-size:0.85rem;">
-        Endpoint: <code>POST /api/predict</code><br>
-        Payload format: <code>{"distance": 6.5, "order_time": 14, "traffic_level": "Medium", "weather": "Clear"}</code>
+    <!-- API Reference Card -->
+    <div class="card">
+      <h3 class="form-section-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        API Access
+      </h3>
+      <p class="text-muted" style="font-size:0.85rem;margin:0 0 0.75rem;">
+        Integrate predictions into your own tools with the REST API.
       </p>
+      <div style="background:var(--bg-2);border-radius:var(--radius-sm);padding:0.75rem;font-size:0.8rem;overflow-x:auto;">
+        <code style="color:var(--accent);">POST /api/predict</code><br>
+        <span style="color:var(--muted);">Content-Type: application/json</span><br><br>
+        <pre style="margin:0;color:var(--text-secondary);font-size:0.75rem;line-height:1.5;">{
+  "origin": "Mumbai",
+  "destination": "Pune",
+  "booking_weekday": "Wednesday",
+  "mode": "Surface",
+  "nature_of_consignment": "Dox",
+  "total_pieces": 1,
+  "actual_weight": 0.5,
+  "volumetric_weight": 0.8,
+  "chargeable_weight": 0.5
+}</pre>
+      </div>
     </div>
   </div>
 </div>
@@ -90,48 +279,53 @@
 
 {% block scripts %}
 <script>
-  (function () {
-    var hour = document.getElementById("order_time");
-    var hourPreview = document.getElementById("hourPreview");
-    var distance = document.getElementById("distance");
-    var traffic = document.getElementById("traffic_level");
-    var weather = document.getElementById("weather");
-    var saveOrder = document.getElementById("save_order");
-    var actual = document.getElementById("actual_delivery");
-    var hintDistance = document.getElementById("hintDistance");
-    var hintTraffic = document.getElementById("hintTraffic");
-    var hintWeather = document.getElementById("hintWeather");
-    var hintSky = document.getElementById("hintSky");
+(function () {
+  var form = document.getElementById('predictForm');
+  var btn = document.getElementById('predictBtn');
+  var btnText = document.getElementById('btnText');
 
-    function skyLabel(h) {
-      if (h >= 6 && h <= 16) return "Day";
-      if (h >= 17 && h <= 20) return "Dusk";
-      return "Night";
+  // ── Loading state ──
+  form.addEventListener('submit', function () {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Calculating...';
+  });
+
+  // ── Live summary preview ──
+  function byId(id) { return document.getElementById(id); }
+
+  var originEl = byId('origin');
+  var destEl = byId('destination');
+  var modeEl = byId('mode');
+  var typeEl = byId('nature_of_consignment');
+  var piecesEl = byId('total_pieces');
+  var dayEl = byId('booking_weekday');
+  var actWtEl = byId('actual_weight');
+  var volWtEl = byId('volumetric_weight');
+  var chgWtEl = byId('chargeable_weight');
+
+  function selectedText(sel) {
+    return sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '\u2014';
+  }
+
+  function updatePreview() {
+    byId('previewOrigin').textContent = selectedText(originEl);
+    byId('previewDest').textContent = selectedText(destEl);
+    byId('previewMode').textContent = selectedText(modeEl);
+    byId('previewType').textContent = selectedText(typeEl);
+    byId('previewPieces').textContent = piecesEl.value || '0';
+    byId('previewDay').textContent = selectedText(dayEl);
+    byId('previewActWt').textContent = (parseFloat(actWtEl.value) || 0).toFixed(2) + ' kg';
+    byId('previewVolWt').textContent = (parseFloat(volWtEl.value) || 0).toFixed(2) + ' kg';
+    byId('previewChgWt').textContent = (parseFloat(chgWtEl.value) || 0).toFixed(2) + ' kg';
+  }
+
+  [originEl, destEl, modeEl, typeEl, piecesEl, dayEl, actWtEl, volWtEl, chgWtEl].forEach(function (el) {
+    if (el) {
+      el.addEventListener('change', updatePreview);
+      el.addEventListener('input', updatePreview);
     }
-
-    function pad(n) { return n < 10 ? "0" + n : String(n); }
-
-    function update() {
-      var h = Number(hour.value);
-      hourPreview.textContent = pad(h) + ":00";
-      hintDistance.textContent = "Distance: " + (distance.value || "0") + " km";
-      hintTraffic.textContent = "Traffic: " + traffic.value;
-      hintWeather.textContent = "Weather: " + weather.value;
-      hintSky.textContent = "Time: " + skyLabel(h);
-      actual.required = saveOrder.checked;
-      actual.placeholder = saveOrder.checked ? "Required when saving" : "Optional audit entry";
-
-      if (window.SmartDeliveryScene) {
-        window.SmartDeliveryScene.setTimeOfDay(h);
-        window.SmartDeliveryScene.setWeather(weather.value);
-      }
-    }
-
-    [hour, distance, traffic, weather, saveOrder].forEach(function (el) {
-      el.addEventListener("input", update);
-      el.addEventListener("change", update);
-    });
-    update();
-  })();
+  });
+  updatePreview();
+})();
 </script>
 {% endblock %}

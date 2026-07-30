@@ -9,9 +9,8 @@ services:
     envVars:
       - key: DELIVERY_DB_PATH
         value: /tmp/delivery.db
-      - key: DELIVERY_MODEL_PATH
-        value: /tmp/models/delivery_regressor.joblib
       - key: BOOTSTRAP_ON_START
-        value: "1"
-      - key: BOOTSTRAP_SEED_COUNT
-        value: "300"
+        value: "0"
+      - key: FLASK_DEBUG
+        value: "0"
+      # PORT is set automatically by Render at runtime

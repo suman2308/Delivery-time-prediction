@@ -33,6 +33,22 @@ def init_db() -> None:
         sql = f.read()
     with connection() as conn:
         conn.executescript(sql)
+        _migrate_created_at_columns(conn)
+
+
+def _migrate_created_at_columns(conn: sqlite3.Connection) -> None:
+    """Add timestamps to databases created before the current schema."""
+    for table_name in ("orders", "predictions"):
+        columns = {
+            row["name"]
+            for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        }
+        if "created_at" not in columns:
+            conn.execute(f"ALTER TABLE {table_name} ADD COLUMN created_at TIMESTAMP")
+            conn.execute(
+                f"UPDATE {table_name} SET created_at = CURRENT_TIMESTAMP "
+                "WHERE created_at IS NULL"
+            )
 
 
 def insert_order(
@@ -45,8 +61,9 @@ def insert_order(
     with connection() as conn:
         cur = conn.execute(
             """
-            INSERT INTO orders (distance, order_time, traffic_level, weather, delivery_time)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO orders
+                (distance, order_time, traffic_level, weather, delivery_time, created_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
             (distance, order_time, traffic_level, weather, delivery_time),
         )
@@ -56,7 +73,10 @@ def insert_order(
 def insert_prediction(order_id: Optional[int], predicted_time: float) -> int:
     with connection() as conn:
         cur = conn.execute(
-            "INSERT INTO predictions (order_id, predicted_time) VALUES (?, ?)",
+            """
+            INSERT INTO predictions (order_id, predicted_time, created_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            """,
             (order_id, predicted_time),
         )
         return int(cur.lastrowid)
@@ -136,3 +156,59 @@ def fetch_recent_predictions(limit: int = 10) -> list[sqlite3.Row]:
             (limit,),
         )
         return cur.fetchall()
+
+
+def insert_dtdc_prediction(
+    origin: str,
+    destination: str,
+    booking_weekday: str,
+    mode: str,
+    nature_of_consignment: str,
+    total_pieces: int,
+    actual_weight: float,
+    volumetric_weight: float,
+    chargeable_weight: float,
+    predicted_days: float,
+    model_version: str,
+) -> int:
+    """Log a DTDC model prediction to the audit table."""
+    with connection() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO dtdc_predictions (
+                origin, destination, booking_weekday, mode,
+                nature_of_consignment, total_pieces, actual_weight,
+                volumetric_weight, chargeable_weight, predicted_days,
+                model_version, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """,
+            (
+                origin, destination, booking_weekday, mode,
+                nature_of_consignment, total_pieces, actual_weight,
+                volumetric_weight, chargeable_weight, predicted_days,
+                model_version,
+            ),
+        )
+        return int(cur.lastrowid)
+
+
+def fetch_dtdc_predictions(limit: int = 5000) -> list[sqlite3.Row]:
+    """Fetch recent DTDC prediction audit records."""
+    with connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT * FROM dtdc_predictions
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return cur.fetchall()
+
+
+def count_dtdc_predictions() -> int:
+    """Return total number of DTDC predictions logged."""
+    with connection() as conn:
+        cur = conn.execute("SELECT COUNT(*) AS c FROM dtdc_predictions")
+        row = cur.fetchone()
+        return int(row["c"]) if row else 0

@@ -60,6 +60,7 @@ def rows_to_dataframe(rows: List[sqlite3.Row]) -> pd.DataFrame:
     """
     return _rows_to_dataframe(rows)
 
+def _rows_to_dataframe(rows: List[sqlite3.Row]) -> pd.DataFrame:
     """Convert raw SQLite rows to a pandas DataFrame.
     The helper is deliberately tiny – the heavy lifting lives in the pipeline.
     """

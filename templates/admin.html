@@ -1,81 +1,90 @@
 {% extends "base.html" %}
-{% block title %}Database — Smart Delivery Platform{% endblock %}
+{% block title %}Database — SmartDelivery Platform{% endblock %}
 {% block content %}
+
 <section class="hero-card">
   <h1>Order History Explorer</h1>
-  <p>Filter historical orders and evaluate ground-truth metrics across traffic and weather segments.</p>
+  <p>Browse and filter historical delivery orders stored in the database.</p>
 </section>
 
 <div class="card">
-  <h2>Filter Records</h2>
+  <h3 class="form-section-title">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 22 7 18 7 18 21 16 21 16 7 10 7 10 21 8 21 8 7 2 7 2 3 22 3"/></svg>
+    Filter Records
+  </h3>
   <form method="get">
-    <div class="row-3">
+    <div class="grid-4">
       <div>
         <label for="traffic">Traffic Level</label>
         <select id="traffic" name="traffic">
-          <option value="">All Traffic Levels</option>
+          <option value="">All Levels</option>
           <option value="Low" {% if traffic == 'Low' %}selected{% endif %}>Low</option>
           <option value="Medium" {% if traffic == 'Medium' %}selected{% endif %}>Medium</option>
           <option value="High" {% if traffic == 'High' %}selected{% endif %}>High</option>
         </select>
       </div>
       <div>
-        <label for="weather">Weather Condition</label>
+        <label for="weather">Weather</label>
         <select id="weather" name="weather">
-          <option value="">All Weather Types</option>
+          <option value="">All Weather</option>
           <option value="Clear" {% if weather == 'Clear' %}selected{% endif %}>Clear</option>
           <option value="Rainy" {% if weather == 'Rainy' %}selected{% endif %}>Rainy</option>
         </select>
       </div>
       <div>
         <label for="min_distance">Min Distance (km)</label>
-        <input id="min_distance" name="min_distance" type="number" step="0.1" value="{{ min_distance }}">
+        <input id="min_distance" name="min_distance" type="number" step="0.1" value="{{ min_distance }}" placeholder="Any">
       </div>
       <div>
         <label for="max_distance">Max Distance (km)</label>
-        <input id="max_distance" name="max_distance" type="number" step="0.1" value="{{ max_distance }}">
+        <input id="max_distance" name="max_distance" type="number" step="0.1" value="{{ max_distance }}" placeholder="Any">
       </div>
     </div>
-    <div class="inline" style="gap:0.75rem; margin-top:1rem;">
+    <div class="flex gap-2 mt-2">
       <button type="submit">Apply Filters</button>
-      <a class="btn btn-muted" href="{{ url_for('admin') }}">Reset</a>
+      <a class="btn btn-secondary" href="{{ url_for('admin') }}">Reset</a>
     </div>
   </form>
 </div>
 
-<div class="card table-wrap">
-  <div class="inline" style="justify-content:space-between; margin-bottom:1rem;">
-    <h2>Order Records</h2>
-    <span class="tag ok">{{ rows|length }} records found</span>
+<div class="card">
+  <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h3 class="form-section-title" style="margin:0;border:none;padding:0;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Order Records
+    </h3>
+    <span class="tag tag-info">{{ rows|length }} records</span>
   </div>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Distance</th>
-        <th>Departure Hour</th>
-        <th>Traffic</th>
-        <th>Weather</th>
-        <th>Actual Time</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      <tr>
-        <td><strong>#{{ r['order_id'] }}</strong></td>
-        <td>{{ r['distance'] }} km</td>
-        <td>{{ r['order_time'] }}:00</td>
-        <td><span class="tag">{{ r['traffic_level'] }}</span></td>
-        <td><span class="tag">{{ r['weather'] }}</span></td>
-        <td><strong style="color:var(--accent);">{{ r['delivery_time'] }} mins</strong></td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="6" class="muted" style="text-align:center; padding:2rem;">No orders match the specified filter criteria.</td>
-      </tr>
-      {% else %}
-      {% endfor %}
-    </tbody>
-  </table>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Distance</th>
+          <th>Departure</th>
+          <th>Traffic</th>
+          <th>Weather</th>
+          <th>Actual Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><strong>#{{ r['order_id'] }}</strong></td>
+          <td>{{ r['distance'] }} km</td>
+          <td>{{ r['order_time'] }}:00</td>
+          <td><span class="tag">{{ r['traffic_level'] }}</span></td>
+          <td><span class="tag">{{ r['weather'] }}</span></td>
+          <td><strong style="color:var(--accent);">{{ r['delivery_time'] }} mins</strong></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-muted text-center" style="padding:2rem;">No orders match the specified filter criteria.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

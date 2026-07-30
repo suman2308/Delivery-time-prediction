@@ -1,10 +1,17 @@
+.freebuff/
+
 __pycache__/
 *.py[cod]
 .venv/
 venv/
 env/
 *.db
+# Exclude old/auto-generated model artifacts by default
 models/*.joblib
+# But explicitly include the production DTDC model for deployment
+!models/dtdc_hgb_v*.joblib
+
+# Static plots are generated at runtime
 static/plots/*.png
 .pytest_cache/
 .mypy_cache/

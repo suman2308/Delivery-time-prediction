@@ -1,0 +1,44 @@
+# Freebuff tool data
+.freebuff/
+
+# Version control
+.git/
+.gitattributes
+.gitignore
+
+# Python caches & virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Database files (local dev only — DB is created at runtime)
+*.db
+*.db-shm
+*.db-wal
+
+# Test & lint artefacts
+.pytest_cache/
+.mypy_cache/
+
+# Large data files (not needed in the image — model pre-trained)
+DTDC_Improved_Dataset.csv
+
+# Project documentation & config (not needed at runtime)
+README.md
+LICENSE
+render.yaml
+runtime.txt
+pytest.ini
+
+# Container / orchestration files (not needed inside the image)
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo

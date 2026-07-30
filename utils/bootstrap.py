@@ -26,13 +26,16 @@ def _bootstrap_if_needed():
     if db.count_orders() == 0:
         # Try real data import first
         try:
+            import sys
+            # Ensure project root is in sys.path for module imports
+            sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
             from data.migrate_dtdc import migrate_dtdc
             migrated = migrate_dtdc()
             if migrated:
                 return
-        except Exception:
+        except Exception as e:
             # If import fails, fall back to synthetic if allowed
-            pass
+            print(f"DTDC migration failed: {e}")
     if use_synthetic:
         # Seed synthetic data (default 300 rows)
         seed_count = int(os.getenv("BOOTSTRAP_SEED_COUNT", "300"))

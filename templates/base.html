@@ -6,52 +6,88 @@
   <title>{% block title %}Smart Delivery Engine{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   {% block head %}{% endblock %}
 </head>
 <body data-time="day" data-weather="clear">
 
+  <!-- Ambient Scene -->
+  <div class="ambient-scene" aria-hidden="true">
+    <div class="sky-layer"></div>
+    <div class="sun" aria-hidden="true"></div>
+    <div class="moon" aria-hidden="true"></div>
+    <div class="cloud cloud-1" aria-hidden="true"></div>
+    <div class="cloud cloud-2" aria-hidden="true"></div>
+    <div class="rain-layer" aria-hidden="true"></div>
+  </div>
 
   <div class="page-wrap">
-    <header>
-      <div class="brand">
-        <span class="logo-dot"></span>
-        <div>
-          <div class="brand-title">Smart Delivery Engine</div>
-        </div>
-        <span class="pill">v2.0 ML Platform</span>
+
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+      <a href="{{ url_for('index') }}" class="navbar-brand" aria-label="Home">
+        <span class="brand-icon" aria-hidden="true">SD</span>
+        <span class="brand-text">SmartDelivery</span>
+      </a>
+
+      <div class="navbar-links" id="mainNav" role="menubar">
+        <a href="{{ url_for('index') }}" class="nav-link" role="menuitem" id="navPredict">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Predict
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="nav-link" role="menuitem" id="navDashboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Analytics
+        </a>
+        <a href="{{ url_for('admin') }}" class="nav-link" role="menuitem" id="navAdmin">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Database
+        </a>
+        <a href="{{ url_for('metrics_json') }}" class="nav-link" target="_blank" rel="noopener" role="menuitem">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          API
+        </a>
       </div>
-      <div class="controls">
-        <button class="icon-btn" id="themeToggle" type="button" title="Toggle Light/Dark Theme">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+      <div class="navbar-actions">
+        <span class="status-badge" aria-label="System status: operational">
+          <span class="status-dot" aria-hidden="true"></span>
+          Operational
+        </span>
+        <button class="theme-btn" id="themeToggle" type="button" title="Toggle light/dark theme" aria-label="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <circle cx="12" cy="12" r="5"/>
             <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
           </svg>
         </button>
+        <button class="nav-toggle" id="navToggle" type="button" title="Toggle navigation menu" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mainNav">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
       </div>
-    </header>
+    </nav>
 
-    <div class="layout">
-      <aside class="sidebar" aria-label="Navigation">
-        <h3>Menu</h3>
-        <div class="side-links" id="sideNav">
-          <a href="{{ url_for('index') }}"><span>Predictor</span><small>Live Form</small></a>
-          <a href="{{ url_for('dashboard') }}"><span>Analytics</span><small>Charts</small></a>
-          <a href="{{ url_for('admin') }}"><span>Database</span><small>Explorer</small></a>
-          <a href="{{ url_for('metrics_json') }}" target="_blank"><span>API Metrics</span><small>JSON</small></a>
-        </div>
-        <div style="margin-top:1.5rem;">
-          <span class="tag ok" style="font-size:0.75rem; width:100%; justify-content:center;">System Operational</span>
-        </div>
-      </aside>
+    <!-- Main Content -->
+    <main role="main">
+      {% block content %}{% endblock %}
+    </main>
 
-      <main>
-        {% block content %}{% endblock %}
-      </main>
-    </div>
-
-    <div class="footer-note">Smart Delivery Prediction Platform &copy; 2026</div>
+    <!-- Footer -->
+    <footer class="footer" role="contentinfo">
+      <div class="footer-text">
+        &copy; 2026 SmartDelivery Platform &mdash; Built with Flask &middot; scikit-learn &middot; HistGradientBoosting
+      </div>
+      <div class="footer-links">
+        <a href="{{ url_for('index') }}">Predictor</a>
+        <a href="{{ url_for('dashboard') }}">Analytics</a>
+        <a href="{{ url_for('admin') }}">Database</a>
+        <a href="{{ url_for('metrics_json') }}" target="_blank" rel="noopener">API</a>
+      </div>
+    </footer>
   </div>
 
   <script src="{{ url_for('static', filename='js/scene.js') }}"></script>

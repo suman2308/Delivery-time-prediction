@@ -25,7 +25,7 @@
       badgeWeather.textContent = isRainy ? "Rainy" : "Sunny";
     }
     var icon = document.getElementById("sceneWeatherIcon");
-    if (icon) icon.textContent = isRainy ? "🌧️" : "☀️";
+    if (icon) icon.textContent = isRainy ? "\u{1F327}\uFE0F" : "\u2600\uFE0F";
   }
 
   window.SmartDeliveryScene = {
@@ -46,9 +46,27 @@
     });
   }
 
-  // Sidebar active links
+  // Mobile nav toggle
+  var navToggle = document.getElementById("navToggle");
+  var mainNav = document.getElementById("mainNav");
+  if (navToggle && mainNav) {
+    navToggle.addEventListener("click", function () {
+      var isOpen = mainNav.classList.toggle("open");
+      navToggle.setAttribute("aria-expanded", String(isOpen));
+    });
+    // Close nav on outside click (mobile only)
+    document.addEventListener("click", function (e) {
+      if (window.innerWidth > 640) return;
+      if (!navToggle.contains(e.target) && !mainNav.contains(e.target)) {
+        mainNav.classList.remove("open");
+        navToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  // Active nav link highlighting
   var path = window.location.pathname;
-  document.querySelectorAll("#sideNav a").forEach(function (link) {
+  document.querySelectorAll(".nav-link").forEach(function (link) {
     var href = link.getAttribute("href");
     if (!href || href.indexOf("http") === 0) return;
     if (href === "/" && path === "/") link.classList.add("active");

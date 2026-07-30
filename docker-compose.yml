@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  smart-delivery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smart-delivery
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist the SQLite database across container restarts
+      - data:/app/data
+      # Mount source directories for hot-reload during development
+      - ./templates:/app/templates:ro
+      - ./static:/app/static:ro
+    environment:
+      - DELIVERY_DB_PATH=/app/data/delivery.db
+      - FLASK_DEBUG=0
+      - BOOTSTRAP_ON_START=0
+    restart: unless-stopped
+
+volumes:
+  data:

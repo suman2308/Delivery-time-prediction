@@ -1,0 +1,48 @@
+{
+  "model_version": "1.0.0",
+  "algorithm": "HistGradientBoostingRegressor",
+  "training_date": "2026-07-30T04:29:48.595917+00:00",
+  "dataset_version": "DTDC_Improved_v1",
+  "dataset_rows": 49639,
+  "features": [
+    "origin",
+    "destination",
+    "booking_weekday",
+    "mode",
+    "nature_of_consignment",
+    "total_pieces",
+    "actual_weight",
+    "volumetric_weight",
+    "chargeable_weight"
+  ],
+  "categorical_features": [
+    "origin",
+    "destination",
+    "booking_weekday",
+    "mode",
+    "nature_of_consignment"
+  ],
+  "numeric_features": [
+    "total_pieces",
+    "actual_weight",
+    "volumetric_weight",
+    "chargeable_weight"
+  ],
+  "target": "delivery_duration_days",
+  "preprocessing_version": "1.0",
+  "hyperparameters": {
+    "learning_rate": 0.03,
+    "max_iter": 150,
+    "max_depth": 6,
+    "min_samples_leaf": 20,
+    "l2_regularization": 0.0,
+    "random_state": 42
+  },
+  "metrics": {
+    "mae_days": 0.5361,
+    "rmse_days": 0.7263,
+    "r2": 0.7466
+  },
+  "test_size": 0.2,
+  "random_state": 42
+}
