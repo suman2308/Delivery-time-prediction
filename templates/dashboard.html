@@ -1,29 +1,39 @@
 {% extends "base.html" %}
-{% block title %}Analytics — Smart Delivery Platform{% endblock %}
+{% block title %}Dashboard — Smart Delivery Platform{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1>Analytics &amp; Performance</h1>
-  <p>Visual diagnostics of model regression behavior, traffic correlation, and error bounds.</p>
-</section>
+<div class="dashboard">
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <h3>Avg. Delivery Time</h3>
+      <p>{{ kpis.avg_delivery_time }} mins</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Delay Risk</h3>
+      <p>{{ kpis.delay_risk }}%</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Prediction Confidence</h3>
+      <p>{{ kpis.confidence }}%</p>
+    </div>
+  </div>
 
-<div class="card">
   {% if error %}
-  <p class="error">{{ error }}</p>
+    <p class="error">{{ error }}</p>
   {% else %}
-  <div class="row">
-    <div>
-      <h2>Distance Impact Correlation</h2>
+    <div class="chart-section">
+      <h2>How Distance Affects Delivery Time</h2>
       <img class="chart" src="{{ url_for('static', filename='plots/' + plots.distance) }}" alt="Distance vs Time">
     </div>
-    <div>
-      <h2>Traffic Level Impact</h2>
+
+    <div class="chart-section">
+      <h2>Impact of Traffic Levels on Delays</h2>
       <img class="chart" src="{{ url_for('static', filename='plots/' + plots.traffic) }}" alt="Traffic Impact">
     </div>
-  </div>
-  <div style="margin-top:1.5rem;">
-    <h2>Predicted vs. Actual Delivery Time</h2>
-    <img class="chart" src="{{ url_for('static', filename='plots/' + plots.compare) }}" alt="Predicted vs Actual" style="max-width:680px;">
-  </div>
+
+    <div class="chart-section">
+      <h2>Model Accuracy: Predicted vs. Actual</h2>
+      <img class="chart" src="{{ url_for('static', filename='plots/' + plots.compare) }}" alt="Predicted vs Actual">
+    </div>
   {% endif %}
 </div>
 {% endblock %}

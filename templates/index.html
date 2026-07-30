@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Predict — Smart Delivery Platform{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1>Delivery Time Estimation</h1>
-  <p>Calculate precise delivery estimates using machine learning trained on real-time traffic, route distance, and weather inputs.</p>
-  <div class="kpis">
-    {% if request.args.get('trained') %}
-    <span class="tag ok">Model Retrained</span>
-    <span class="tag">MAE: {{ request.args.get('mae') }} min</span>
-    <span class="tag">RMSE: {{ request.args.get('rmse') }} min</span>
-    {% endif %}
-    {% if metrics %}
-    <span class="tag ok">Dataset: {{ metrics.rows }} orders</span>
-    <span class="tag">MAE: {{ "%.2f"|format(metrics.mae) }} min</span>
-    <span class="tag">RMSE: {{ "%.2f"|format(metrics.rmse) }} min</span>
-    {% endif %}
-  </div>
-</section>
+  <section class="card">
+    <h1>Delivery Time Estimation</h1>
+    <p>Calculate precise delivery estimates using machine learning trained on real-time traffic, route distance, and weather inputs.</p>
+    <div class="kpis">
+      {% if request.args.get('trained') %}
+      <span class="tag ok">Model Retrained</span>
+      <span class="tag">MAE: {{ request.args.get('mae') }} min</span>
+      <span class="tag">RMSE: {{ request.args.get('rmse') }} min</span>
+      {% endif %}
+      {% if metrics %}
+      <span class="tag ok">Dataset: {{ metrics.rows }} orders</span>
+      <span class="tag">MAE: {{ "%.2f"|format(metrics.mae) }} min</span>
+      <span class="tag">RMSE: {{ "%.2f"|format(metrics.rmse) }} min</span>
+      {% endif %}
+    </div>
+  </section>
 
 <div class="row">
   <div class="card">

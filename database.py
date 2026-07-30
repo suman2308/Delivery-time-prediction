@@ -110,7 +110,7 @@ def fetch_predictions_with_orders(limit: int = 500) -> list[sqlite3.Row]:
     with connection() as conn:
         cur = conn.execute(
             """
-            SELECT p.prediction_id, p.order_id, p.predicted_time,
+            SELECT p.prediction_id, p.order_id, p.predicted_time, p.created_at,
                    o.distance, o.order_time, o.traffic_level, o.weather, o.delivery_time
             FROM predictions p
             LEFT JOIN orders o ON o.order_id = p.order_id
