@@ -86,6 +86,105 @@ def _build_preprocessor() -> ColumnTransformer:
 # ---------------------------------------------------------------------------
 # Model registry – candidate regressors
 # ---------------------------------------------------------------------------
+def get_training_stats() -> Tuple[float, float]:
+    """Return mean and standard deviation of the target variable from training data.
+    Used for delay‑risk calculation. Called after training; values are stored in the
+    model meta JSON.
+    """
+    # Load all rows used for training (same as in train_and_save)
+    rows = db.fetch_orders_for_training()
+    df = _rows_to_dataframe(rows)
+    mean_val = float(df[TARGET].mean())
+    std_val = float(df[TARGET].std())
+    return mean_val, std_val
+
+def get_model_meta() -> Dict[str, Any]:
+    """Read the JSON meta file produced during training.
+    It contains the selected model name and optionally statistics.
+    """
+    if not os.path.isfile(MODEL_META_PATH):
+        return {}
+    try:
+        with open(MODEL_META_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def predict_with_confidence(
+    distance: float,
+    order_time: int,
+    traffic: str,
+    weather: str,
+    pipeline: Optional[Pipeline] = None,
+) -> Tuple[float, float]:
+    """Return (prediction, confidence).
+    Confidence is approximated as 1 - (MAE / mean_delivery_time) bounded to [0,1].
+    """
+    pipe = pipeline or load_pipeline()
+    X = pd.DataFrame([
+        {
+            "distance": distance,
+            "order_time": order_time,
+            "traffic_level": traffic,
+            "weather": weather,
+        }
+    ])
+    pred = float(pipe.predict(X)[0])
+    # Approximate confidence using training MAE stored in meta (if available)
+    meta = get_model_meta()
+    mae = meta.get("mae")
+    if mae is None:
+        # fallback: use a default moderate confidence
+        confidence = 0.75
+    else:
+        mean_val, _ = get_training_stats()
+        confidence = max(0.0, min(1.0, 1 - mae / mean_val))
+    return pred, confidence
+
+def assess_delay_risk(prediction: float) -> str:
+    """Return 'high' if prediction exceeds mean + 1 σ, else 'low'."""
+    mean_val, std_val = get_training_stats()
+    return "high" if prediction > (mean_val + std_val) else "low"
+
+def get_explanation() -> Dict[str, Any]:
+    """Return a simple model‑specific explanation.
+    For LinearRegression we expose coefficients; for RandomForest we expose
+    feature_importances_. The result maps feature name → importance/value.
+    """
+    meta = get_model_meta()
+    best_name = meta.get("best_model")
+    if not best_name:
+        return {}
+    pipe = load_pipeline()
+    model = pipe.named_steps["model"]
+    if hasattr(model, "coef_"):
+        # LinearRegression or similar
+        coeffs = model.coef_.tolist()
+        return {feat: coeff for feat, coeff in zip(FEATURE_COLUMNS, coeffs)}
+    if hasattr(model, "feature_importances_"):
+        importances = model.feature_importances_.tolist()
+        return {feat: imp for feat, imp in zip(FEATURE_COLUMNS, importances)}
+    return {}
+
+def generate_recommendation(
+    traffic: str,
+    weather: str,
+    distance: float,
+) -> str:
+    """Simple rule‑based recommendation based on inputs.
+    * High traffic → suggest alternative route or earlier departure.
+    * Rainy weather → add buffer time.
+    * Long distance (>20 km) → consider split shipment.
+    """
+    recommendations = []
+    if traffic.lower() == "high":
+        recommendations.append("Consider alternative route or depart earlier to avoid congestion.")
+    if weather.lower() == "rainy":
+        recommendations.append("Add a buffer of 10‑15 min for weather‑related delays.")
+    if distance > 20:
+        recommendations.append("Long distance shipment – evaluate split‑delivery options.")
+    return " ".join(recommendations) if recommendations else "No special actions needed."
+
 def _candidate_models() -> Dict[str, Any]:
     """Dictionary of model name → instantiated regressor.
     Models that cannot be imported are silently omitted – the training loop will only

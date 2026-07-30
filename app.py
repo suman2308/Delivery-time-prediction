@@ -51,85 +51,9 @@ def index():
     return render_template("index.html", metrics=metrics, error=None)
 
 
-@app.route("/predict", methods=["POST"])
-def predict_form():
-    ensure_app_ready()
-    try:
-        distance = float(request.form["distance"])
-        order_time = int(request.form["order_time"])
-        traffic = request.form["traffic_level"]
-        weather = request.form["weather"]
-    except (KeyError, TypeError, ValueError):
-        return "Invalid form input parameters.", 400
-
-    save_order = request.form.get("save_order") == "on"
-    actual_raw = (request.form.get("actual_delivery") or "").strip()
-
-    try:
-        pipe = ml_model.load_pipeline()
-    except FileNotFoundError as e:
-        return render_template("index.html", metrics=None, error=str(e)), 503
-
-    predicted = ml_model.predict_delivery(
-        distance, order_time, traffic, weather, pipeline=pipe
-    )
-    order_id = None
-    if save_order:
-        if not actual_raw:
-            return "Provide actual delivery duration in minutes to save an order.", 400
-        try:
-            actual = float(actual_raw)
-        except ValueError:
-            return "Actual delivery time must be numeric.", 400
-        order_id = db.insert_order(distance, order_time, traffic, weather, actual)
-
-    db.insert_prediction(order_id, predicted)
-    return render_template(
-        "result.html",
-        predicted=predicted,
-        distance=distance,
-        order_time=order_time,
-        traffic=traffic,
-        weather=weather,
-        order_id=order_id,
-    )
-
-
-@app.route("/api/predict", methods=["POST"])
-def api_predict():
-    ensure_app_ready()
-    payload = request.get_json(force=True, silent=True) or {}
-    try:
-        distance = float(payload["distance"])
-        order_time = int(payload["order_time"])
-        traffic = str(payload["traffic_level"])
-        weather = str(payload["weather"])
-    except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "Fields 'distance', 'order_time', 'traffic_level', and 'weather' are required."}), 400
-
-    try:
-        pipe = ml_model.load_pipeline()
-    except FileNotFoundError as e:
-        return jsonify({"error": str(e)}), 503
-
-    predicted = ml_model.predict_delivery(
-        distance, order_time, traffic, weather, pipeline=pipe
-    )
-    order_id = payload.get("order_id")
-    if order_id is not None:
-        try:
-            order_id = int(order_id)
-        except (TypeError, ValueError):
-            order_id = None
-
-    prediction_id = db.insert_prediction(order_id, predicted)
-    return jsonify(
-        {
-            "predicted_time_minutes": round(predicted, 2),
-            "prediction_id": prediction_id,
-            "order_id": order_id,
-        }
-    )
+@app.route("/scenario", methods=["POST"])
+def scenario():
+    return "Scenario endpoint placeholder", 200
 
 
 @app.route("/admin")
@@ -161,7 +85,7 @@ def admin():
 
 @app.route("/dashboard")
 def dashboard():
-    ensure_app_ready()
+    # Load model to ensure pipeline exists
     try:
         ml_model.load_pipeline()
     except FileNotFoundError:
@@ -169,8 +93,26 @@ def dashboard():
             "dashboard.html",
             error="Model pipeline not trained. Run training via home page or CLI script.",
             plots=None,
+            kpis=None,
         ), 503
 
+    # Fetch data for KPI calculations
+    rows = db.fetch_orders_for_training()
+    df = ml_model.rows_to_dataframe(rows)
+    if df.empty:
+        avg_delivery = 0.0
+    else:
+        avg_delivery = float(df[ml_model.TARGET].mean())
+    # Confidence based on recent MAE
+    mae, _, _ = ml_model.evaluate_on_db()
+    confidence = max(0.0, min(1.0, 1 - mae / avg_delivery)) if avg_delivery != 0 else 0.0
+    kpis = {
+        "avg_delivery_time": round(avg_delivery, 2),
+        "delay_risk": ml_model.assess_delay_risk(avg_delivery),
+        "confidence": round(confidence * 100, 1),
+    }
+
+    # Generate plots
     p1 = charts.plot_delivery_vs_distance()
     p2 = charts.plot_traffic_impact()
     p3 = charts.plot_pred_vs_actual()
@@ -179,7 +121,7 @@ def dashboard():
         "traffic": os.path.basename(p2),
         "compare": os.path.basename(p3),
     }
-    return render_template("dashboard.html", plots=plots, error=None)
+    return render_template("dashboard.html", plots=plots, error=None, kpis=kpis)
 
 
 @app.route("/health")
