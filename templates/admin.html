@@ -56,6 +56,12 @@
     <span class="tag tag-info">{{ rows|length }} records</span>
   </div>
 
+  {% if not rows %}
+  <div style="text-align:center;padding:2.5rem 1rem;">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;margin:0 auto 0.75rem;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <p class="text-muted" style="margin:0;">No records found. Submit predictions to populate the database.</p>
+  </div>
+  {% else %}
   <div class="table-wrap">
     <table>
       <thead>
@@ -86,5 +92,6 @@
       </tbody>
     </table>
   </div>
+{% endif %}
 </div>
 {% endblock %}

@@ -47,22 +47,28 @@ This project builds a production-ready ML system that predicts delivery duration
 
 ## 📸 Screenshots
 
-> ⚠️ *Screenshots coming soon. Run the application locally to explore the UI.*
-
 | Page | Preview |
 |---|---|
-| **Prediction Form** | ![Placeholder](https://via.placeholder.com/600x400?text=Prediction+Form) |
-| **Prediction Result** | ![Placeholder](https://via.placeholder.com/600x400?text=Prediction+Result) |
-| **Analytics Dashboard** | ![Placeholder](https://via.placeholder.com/600x400?text=Dashboard) |
-| **Database Explorer** | ![Placeholder](https://via.placeholder.com/600x400?text=Database+Explorer) |
+| **Prediction Form** | ![Prediction form with route, shipment, and parcel sections](static/screenshots/home.png) |
+| **Prediction Result** | ![Result showing predicted days with route and model info](static/screenshots/result.png) |
+| **Analytics Dashboard** | ![Dashboard with KPI cards and mode impact chart](static/screenshots/dashboard.png) |
+| **Database Explorer** | ![Admin page with filter form and records table](static/screenshots/admin.png) |
+
+> 🚀 **Try the live demo:** [smart-delivery-prediction.onrender.com](https://smart-delivery-prediction.onrender.com) — the actual application running in production.
+>
+> 📸 *Screenshots above are representative mockups showing the app's visual design. The live demo renders the real UI with actual data in your browser.*
 
 ---
 
 ## 🚀 Live Demo
 
-> ⚠️ *A live demo will be available once deployed to Render.*
+The application is deployed and running at:
 
-Once deployed, visit: `https://smart-delivery-prediction.onrender.com`
+**👉 [https://smart-delivery-prediction.onrender.com](https://smart-delivery-prediction.onrender.com)**
+
+No login required. Open it in any browser and start making predictions immediately.
+
+> ⚠️ **Note:** The free Render tier may take 30-60 seconds to spin up after periods of inactivity (cold start). Once loaded, subsequent requests are fast.
 
 ---
 
@@ -273,11 +279,7 @@ smart-delivery-prediction/
 ├── tests/
 │   └── test_delivery.py             # Integration tests
 │
-├── utils/
-│   └── bootstrap.py                 # Startup bootstrap (legacy)
-│
-└── routes/
-    └── dashboard.py                 # Unused legacy blueprint
+└── utils/                          # (removed in cleanup)                         # (empty — removed in cleanup)
 ```
 
 ---

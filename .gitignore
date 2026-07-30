@@ -1,4 +1,8 @@
 .freebuff/
+_test_venv/
+
+# Raw dataset (24 MB) — not needed at runtime, pre-trained model ships as .joblib
+DTDC_Improved_Dataset.csv
 
 __pycache__/
 *.py[cod]

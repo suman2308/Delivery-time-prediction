@@ -38,13 +38,25 @@ def _rows_to_df(rows: list) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
+def _cache_valid(path: str) -> bool:
+    """Return True if chart PNG is newer than the database file (cached)."""
+    if not os.path.isfile(path):
+        return False
+    db_path = config.DATABASE_PATH
+    if not os.path.isfile(db_path):
+        return False
+    return os.path.getmtime(path) > os.path.getmtime(db_path)
+
+
 def plot_mode_impact() -> str:
     """Bar chart: average predicted delivery days by shipment mode."""
     ensure_plots_dir()
     path = os.path.join(config.PLOTS_DIR, "mode_impact.png")
+    if _cache_valid(path):
+        return path
     rows = db.fetch_dtdc_predictions(limit=10000)
     if not rows:
-        _empty_chart("No DTDC predictions yet — submit a prediction first", path)
+        _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
     df = _rows_to_df(rows)
     grouped = df.groupby("mode")["predicted_days"].mean().sort_values(ascending=False)
@@ -82,9 +94,11 @@ def plot_prediction_distribution() -> str:
     """Histogram: distribution of predicted delivery days."""
     ensure_plots_dir()
     path = os.path.join(config.PLOTS_DIR, "pred_distribution.png")
+    if _cache_valid(path):
+        return path
     rows = db.fetch_dtdc_predictions(limit=10000)
     if not rows:
-        _empty_chart("No DTDC predictions yet — submit a prediction first", path)
+        _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
     df = _rows_to_df(rows)
     values = df["predicted_days"].values
@@ -114,9 +128,11 @@ def plot_top_routes() -> str:
     """Horizontal bar chart: top origin-destination pairs by prediction count."""
     ensure_plots_dir()
     path = os.path.join(config.PLOTS_DIR, "top_routes.png")
+    if _cache_valid(path):
+        return path
     rows = db.fetch_dtdc_predictions(limit=10000)
     if not rows:
-        _empty_chart("No DTDC predictions yet — submit a prediction first", path)
+        _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
     df = _rows_to_df(rows)
     route_counts = (
@@ -147,6 +163,7 @@ def plot_top_routes() -> str:
 
 
 def _empty_chart(message: str, path: str) -> None:
+    """Create a placeholder chart for empty-data state."""
     fig, ax = plt.subplots(figsize=(5, 3), facecolor=PLT_BG)
     ax.set_facecolor(PLT_CARD)
     ax.text(0.5, 0.5, message, ha="center", va="center", color=PLT_TEXT, fontsize=10)
@@ -154,7 +171,3 @@ def _empty_chart(message: str, path: str) -> None:
     plt.tight_layout()
     plt.savefig(path, dpi=100, facecolor=fig.get_facecolor())
     plt.close()
-
-
-def pd_isna(val) -> bool:
-    return val != val

@@ -48,9 +48,6 @@ COPY seed_data.py       ./
 COPY app.py             ./
 
 COPY data/              ./data/
-COPY utils/             ./utils/
-COPY routes/            ./routes/
-COPY src/               ./src/
 COPY templates/         ./templates/
 COPY static/            ./static/
 

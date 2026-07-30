@@ -29,6 +29,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Verify model artifact loads correctly
+        run: |
+          python -c "import joblib; joblib.load('models/dtdc_hgb_v1_0_0.joblib'); print('Model artifact loads OK')"
+
       - name: Run tests with pytest
         run: |
           python -m pytest tests/ -v --tb=short

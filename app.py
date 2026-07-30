@@ -3,16 +3,36 @@ from __future__ import annotations
 
 import os
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, jsonify, render_template, request
 
 import charts
 import config
 import database as db
-import ml_model
-import seed_data
 from dtdc_model import DTDCPredictor, MODEL_ALGORITHM, MODEL_VERSION
 
 app = Flask(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+@app.after_request
+def _set_security_headers(response):
+    """Apply standard security headers to every response."""
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'"
+    )
+    return response
 
 # ---------------------------------------------------------------------------
 # DTDC model - initialised once at module load (singleton guarantees one load)
@@ -32,6 +52,9 @@ def _bootstrap_if_needed() -> None:
     bootstrap_enabled = os.environ.get("BOOTSTRAP_ON_START", "1") == "1"
     if not bootstrap_enabled or os.path.isfile(config.MODEL_PATH):
         return
+
+    import ml_model
+    import seed_data
 
     orders_count = db.count_orders()
     if orders_count < 10:
@@ -199,11 +222,6 @@ def predict_api():
     )
 
 
-@app.route("/scenario", methods=["POST"])
-def scenario():
-    return "Scenario endpoint placeholder", 200
-
-
 @app.route("/admin")
 def admin():
     ensure_app_ready()
@@ -266,7 +284,7 @@ def dashboard():
         "algorithm": meta.get("algorithm", ""),
     }
 
-    # Generate DTDC-based charts
+    # Generate DTDC-based charts (cached to avoid regenerating on every request)
     p1 = charts.plot_mode_impact()
     p2 = charts.plot_prediction_distribution()
     p3 = charts.plot_top_routes()
@@ -276,21 +294,6 @@ def dashboard():
         "routes": os.path.basename(p3),
     }
     return render_template("dashboard.html", plots=plots, error=None, kpis=kpis)
-
-@app.route("/explain")
-def explain():
-    """Generate and serve model explanation plot."""
-    try:
-        path = ml_model.generate_explanation_plot()
-        if not path:
-            return "Explanation not available", 404
-        # Serve image file
-        from flask import send_file
-        return send_file(path, mimetype='image/png')
-    except Exception as e:
-        return f"Error generating explanation: {e}", 500
-
-
 
 @app.route("/health")
 def health():
@@ -313,19 +316,6 @@ def metrics_json():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 503
-        return jsonify({"error": str(e)}), 503
-
-
-@app.route("/train", methods=["POST"])
-def train_trigger():
-    ensure_app_ready()
-    try:
-        r = ml_model.train_and_save()
-        return redirect(
-            url_for("index", trained=1, mae=f"{r.mae:.2f}", rmse=f"{r.rmse:.2f}")
-        )
-    except ValueError as e:
-        return str(e), 400
 
 
 if __name__ == "__main__":
