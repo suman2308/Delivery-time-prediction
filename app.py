@@ -123,6 +123,20 @@ def dashboard():
     }
     return render_template("dashboard.html", plots=plots, error=None, kpis=kpis)
 
+@app.route("/explain")
+def explain():
+    """Generate and serve model explanation plot."""
+    try:
+        path = ml_model.generate_explanation_plot()
+        if not path:
+            return "Explanation not available", 404
+        # Serve image file
+        from flask import send_file
+        return send_file(path, mimetype='image/png')
+    except Exception as e:
+        return f"Error generating explanation: {e}", 500
+
+
 
 @app.route("/health")
 def health():

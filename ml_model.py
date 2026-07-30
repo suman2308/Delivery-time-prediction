@@ -146,7 +146,67 @@ def assess_delay_risk(prediction: float) -> str:
     mean_val, std_val = get_training_stats()
     return "high" if prediction > (mean_val + std_val) else "low"
 
-def get_explanation() -> Dict[str, Any]:
+import matplotlib.pyplot as plt
+
+# Optional SHAP import – if unavailable we fall back to simple importance bar chart
+try:
+    import shap
+except Exception:
+    shap = None  # type: ignore
+
+def generate_explanation_plot() -> str:
+    """Create a visual explanation of the model's decisions.
+
+    * If SHAP is available we produce a summary force plot for a typical sample.
+    * Otherwise we render a plain bar chart of feature importances / coefficients.
+    The image is saved under ``config.PLOTS_DIR`` as ``explanation.png`` and the
+    function returns the absolute path so the Flask view can embed it.
+    """
+    meta = get_model_meta()
+    best_name = meta.get("best_model")
+    if not best_name:
+        return ""
+    pipe = load_pipeline()
+    model = pipe.named_steps["model"]
+    # Prepare feature names in the order used by the pipeline after preprocessing
+    preprocessor = pipe.named_steps["preprocess"]
+    # Get transformed feature names (numeric + one‑hot encoded categories)
+    # This is a lightweight approximation – we only need a readable name list.
+    numeric = ["distance", "order_time"]
+    categorical = ["traffic_level", "weather"]
+    # Build list of names for one‑hot features
+    cat_features = preprocessor.transformers_[1][1].get_feature_names_out(categorical)
+    feature_names = numeric + list(cat_features)
+
+    if shap is not None:
+        # Use a small sample from the training data for explanation
+        rows = db.fetch_orders_for_training(limit=200)
+        df = _rows_to_dataframe(rows)
+        X_sample = df[FEATURE_COLUMNS].head(20)
+        explainer = shap.Explainer(model, preprocessor.transform(X_sample))
+        shap_vals = explainer(X_sample)
+        plt.figure(figsize=(6, 4))
+        shap.summary_plot(shap_vals, X_sample, plot_type="bar", show=False)
+    else:
+        # Fallback: simple importance / coefficient bar chart
+        if hasattr(model, "feature_importances_"):
+            importances = model.feature_importances_[: len(feature_names)]
+        elif hasattr(model, "coef_"):
+            importances = model.coef_[: len(feature_names)]
+        else:
+            importances = [0] * len(feature_names)
+        plt.figure(figsize=(6, 4))
+        plt.barh(feature_names, importances, color="#38bdf8")
+        plt.xlabel("Importance")
+        plt.title("Feature importance for {} model".format(best_name))
+        plt.gca().invert_yaxis()
+    # Save the figure
+    path = os.path.join(config.PLOTS_DIR, "explanation.png")
+    plt.tight_layout()
+    plt.savefig(path, dpi=120, facecolor=plt.gcf().get_facecolor())
+    plt.close()
+    return path
+
     """Return a simple model‑specific explanation.
     For LinearRegression we expose coefficients; for RandomForest we expose
     feature_importances_. The result maps feature name → importance/value.
