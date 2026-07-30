@@ -45,21 +45,6 @@ This project builds a production-ready ML system that predicts delivery duration
 
 ---
 
-## 📸 Screenshots
-
-| Page | Preview |
-|---|---|
-| **Prediction Form** | ![Prediction form with route, shipment, and parcel sections](static/screenshots/home.png) |
-| **Prediction Result** | ![Result showing predicted days with route and model info](static/screenshots/result.png) |
-| **Analytics Dashboard** | ![Dashboard with KPI cards and mode impact chart](static/screenshots/dashboard.png) |
-| **Database Explorer** | ![Admin page with filter form and records table](static/screenshots/admin.png) |
-
-> 🚀 **Try the live demo:** [smart-delivery-prediction.onrender.com](https://smart-delivery-prediction.onrender.com) — the actual application running in production.
->
-> 📸 *Screenshots above are representative mockups showing the app's visual design. The live demo renders the real UI with actual data in your browser.*
-
----
-
 ## 🚀 Live Demo
 
 The application is deployed and running at:
