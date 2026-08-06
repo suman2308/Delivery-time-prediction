@@ -1,143 +1,202 @@
 {% extends "base.html" %}
-{% block title %}Result — SmartDelivery Platform{% endblock %}
+{% block title %}Prediction Result — CourierAI{% endblock %}
 {% block content %}
 
-<!-- Result Hero -->
-<section class="result-hero">
-  <div class="result-label">Estimated Delivery Duration</div>
-  <div class="result-value">
-    {{ "%.2f"|format(predicted_days) }}
-    <span class="result-unit">days</span>
-  </div>
-  <div class="tag-group flex-center mt-2" style="justify-content:center;">
-    <span class="tag tag-success">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-      Prediction Complete
-    </span>
-    <span class="tag tag-info">{{ algorithm }} v{{ model_version }}</span>
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <!-- Result hero -->
+    <div class="card card-pad reveal" style="text-align:center;background:linear-gradient(120deg, rgba(109,94,249,0.14), rgba(56,189,248,0.08)), var(--surface);border-color:var(--border-strong);">
+      <span class="eyebrow" style="margin-bottom:1.25rem;">Estimated Delivery Duration</span>
+      <div style="font-family:var(--font-display);font-size:clamp(3.5rem,8vw,5.5rem);font-weight:700;line-height:1;letter-spacing:-0.03em;background:var(--brand-gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;margin:0.5rem 0 0.25rem;">
+        {{ "%.2f"|format(predicted_days) }}
+      </div>
+      <p class="text-muted" style="margin:0 0 1.5rem;">days &middot; origin to destination</p>
+      <div class="flex-center wrap gap-2">
+        <span class="badge badge-success"><span class="dot"></span> Prediction Complete</span>
+        <span class="badge badge-primary">{{ algorithm }} v{{ model_version }}</span>
+      </div>
+    </div>
+
+    <!-- Route + shipment details -->
+    <div class="grid grid-2 mt-6" style="align-items:start;">
+      <div class="card reveal">
+        <h3 class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Route Summary
+        </h3>
+        <div class="demo-route" style="margin-bottom:1rem;">
+          <span class="city">{{ origin }}</span>
+          <span class="route-line"></span>
+          <span class="city">{{ destination }}</span>
+        </div>
+        <div class="demo-metric-row">
+          <div class="demo-metric">
+            <div class="k">Booking Day</div>
+            <div class="v" style="font-size:1rem;">{{ booking_weekday }}</div>
+          </div>
+          <div class="demo-metric">
+            <div class="k">Mode</div>
+            <div class="v" style="font-size:1rem;">{{ mode }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card reveal reveal-delay-1">
+        <h3 class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Shipment Details
+        </h3>
+        <div class="demo-metric-row">
+          <div class="demo-metric">
+            <div class="k">Consignment Type</div>
+            <div class="v" style="font-size:1rem;">{{ nature_of_consignment }}</div>
+          </div>
+          <div class="demo-metric">
+            <div class="k">Total Pieces</div>
+            <div class="v" style="font-size:1rem;">{{ total_pieces }}</div>
+          </div>
+        </div>
+        <div class="demo-metric-row" style="margin-top:0.75rem;">
+          <div class="demo-metric">
+            <div class="k">Actual Weight</div>
+            <div class="v" style="font-size:1rem;">{{ "%.2f"|format(actual_weight) }} kg</div>
+          </div>
+          <div class="demo-metric">
+            <div class="k">Volumetric Weight</div>
+            <div class="v" style="font-size:1rem;">{{ "%.2f"|format(volumetric_weight) }} kg</div>
+          </div>
+          <div class="demo-metric">
+            <div class="k">Chargeable Weight</div>
+            <div class="v" style="font-size:1rem;">{{ "%.2f"|format(chargeable_weight) }} kg</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Explainable AI -->
+    {% set risk = 'Low' if predicted_days < 2 else ('Medium' if predicted_days < 3.5 else 'High') %}
+    {% set conf = 'High' if model_mae <= 0.55 else ('Medium' if model_mae <= 0.7 else 'Moderate') %}
+    <div class="grid grid-2 mt-6" style="align-items:start;">
+      <div class="card reveal">
+        <h3 class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          AI Summary
+        </h3>
+        <p class="text-sm" style="margin:0 0 1rem;">
+          Based on <strong>{{ "{:,}".format(dataset_rows) }} courier records</strong>, a <strong>{{ mode }}</strong> consignment
+          from <strong>{{ origin }}</strong> to <strong>{{ destination }}</strong> is estimated to take
+          <strong>{{ "%.2f"|format(predicted_days) }} days</strong>. {{ mode }} shipments on this corridor typically
+          land within this range — air and express lanes tighten the window, while surface lanes and heavier
+          parcels widen it.
+        </p>
+        <div class="demo-metric-row">
+          <div class="demo-metric">
+            <div class="k">Confidence</div>
+            <div class="v">
+              <span class="badge {% if conf == 'High' %}badge-success{% elif conf == 'Medium' %}badge-warning{% else %}badge-danger{% endif %}">{{ conf }}</span>
+            </div>
+          </div>
+          <div class="demo-metric">
+            <div class="k">Risk level</div>
+            <div class="v">
+              <span class="badge {% if risk == 'Low' %}badge-success{% elif risk == 'Medium' %}badge-warning{% else %}badge-danger{% endif %}">{{ risk }}</span>
+            </div>
+          </div>
+          <div class="demo-metric">
+            <div class="k">Window</div>
+            <div class="v" style="font-size:0.95rem;">&plusmn;{{ "%.2f"|format(model_mae) }} days</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card reveal reveal-delay-1">
+        <h3 class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          What drives this estimate
+        </h3>
+        <p class="text-xs text-muted" style="margin:-0.5rem 0 1rem;">Feature importance (representative).</p>
+        <div class="metric-row">
+          <div class="metric-label">Mode <span class="text-muted">&middot; Surface / Express / Air</span></div>
+          <div class="metric-bar"><span style="width:38%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">Chargeable weight</div>
+          <div class="metric-bar"><span style="width:24%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">Route (origin &rarr; destination)</div>
+          <div class="metric-bar"><span style="width:18%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">Booking day</div>
+          <div class="metric-bar"><span style="width:12%;"></span></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">Total pieces</div>
+          <div class="metric-bar"><span style="width:8%;"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model info -->
+    <div class="card mt-6 reveal">
+      <h3 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Prediction Metadata
+      </h3>
+      <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+        <div class="stat-card">
+          <div class="stat-label">Model</div>
+          <div class="stat-value" style="font-size:1.15rem;">{{ algorithm | display_algo }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Model Version</div>
+          <div class="stat-value" style="font-size:1.15rem;">v{{ model_version }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Prediction Timestamp</div>
+          <div class="stat-value" style="font-size:1.15rem;"><span id="predictionTimestamp">&mdash;</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Prediction Basis</div>
+          <div class="stat-value" style="font-size:1.15rem;">{{ "{:,}".format(dataset_rows) }} records</div>
+        </div>
+      </div>
+
+      <div class="alert alert-info mt-6" role="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>This estimate comes from the <strong>{{ algorithm }}</strong> model v{{ model_version }}, which posts a hold-out mean absolute error of <strong>{{ "%.3f"|format(model_mae) }} days</strong>. Real-world delivery times can vary with live conditions not present in historical training data.</span>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex-center wrap gap-3 mt-8 reveal">
+      <a class="btn btn-primary btn-lg" href="{{ url_for('demo') }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Calculation
+      </a>
+      <a class="btn btn-outline btn-lg" href="{{ url_for('dashboard') }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        View Analytics
+      </a>
+      <a class="btn btn-ghost btn-lg" href="{{ url_for('tracking') }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Track a Shipment
+      </a>
+      <button type="button" class="btn btn-outline btn-lg" data-print-report>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF report
+      </button>
+    </div>
   </div>
 </section>
-
-<!-- Prediction Details Grid -->
-<div class="detail-grid">
-  <!-- Route Summary -->
-  <div class="card" style="grid-column:span 2;">
-    <h3 class="form-section-title">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Route Summary
-    </h3>
-    <div class="detail-grid">
-      <div class="detail-item">
-        <dt>Origin</dt>
-        <dd>{{ origin }}</dd>
-      </div>
-      <div class="detail-item">
-        <dt>Destination</dt>
-        <dd>{{ destination }}</dd>
-      </div>
-      <div class="detail-item">
-        <dt>Booking Day</dt>
-        <dd>{{ booking_weekday }}</dd>
-      </div>
-    </div>
-  </div>
-
-  <!-- Shipment Summary -->
-  <div class="card" style="grid-column:span 2;">
-    <h3 class="form-section-title">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-      Shipment Details
-    </h3>
-    <div class="detail-grid">
-      <div class="detail-item">
-        <dt>Mode</dt>
-        <dd>{{ mode }}</dd>
-      </div>
-      <div class="detail-item">
-        <dt>Consignment Type</dt>
-        <dd>{{ nature_of_consignment }}</dd>
-      </div>
-      <div class="detail-item">
-        <dt>Total Pieces</dt>
-        <dd>{{ total_pieces }}</dd>
-      </div>
-    </div>
-  </div>
-
-  <!-- Parcel Dimensions -->
-  <div class="card" style="grid-column:span 2;">
-    <h3 class="form-section-title">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-      Parcel Dimensions
-    </h3>
-    <div class="detail-grid">
-      <div class="detail-item">
-        <dt>Actual Weight</dt>
-        <dd>{{ "%.2f"|format(actual_weight) }} kg</dd>
-      </div>
-      <div class="detail-item">
-        <dt>Volumetric Weight</dt>
-        <dd>{{ "%.2f"|format(volumetric_weight) }} kg</dd>
-      </div>
-      <div class="detail-item">
-        <dt>Chargeable Weight</dt>
-        <dd>{{ "%.2f"|format(chargeable_weight) }} kg</dd>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Model Info & Confidence Note -->
-<div class="card">
-  <div class="detail-grid">
-    <div class="detail-item">
-      <dt>Model</dt>
-      <dd>{{ algorithm }}</dd>
-    </div>
-    <div class="detail-item">
-      <dt>Model Version</dt>
-      <dd>v{{ model_version }}</dd>
-    </div>
-    <div class="detail-item">
-      <dt>Prediction Timestamp</dt>
-      <dd><span id="predictionTimestamp">—</span></dd>
-    </div>
-    <div class="detail-item">
-      <dt>Prediction Basis</dt>
-      <dd>Trained on {{ "{:,.0f}".format(dataset_rows) }} DTDC records</dd>
-    </div>
-  </div>
-
-  <div class="alert alert-info mt-2" role="note">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-    <span>This prediction is based on the DTDC <strong>{{ algorithm }}</strong> model v{{ model_version }}. Actual delivery times may vary based on real-time conditions not captured by historical training data. Model holdout MAE: <strong>{{ "%.3f"|format(model_mae) }} days</strong> (cross-validated).</span>
-  </div>
-</div>
-
-<!-- Action Buttons -->
-<div class="flex gap-2 mt-2" style="justify-content:center;flex-wrap:wrap;">
-  <a class="btn" href="{{ url_for('index') }}">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    New Calculation
-  </a>
-  <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    View Analytics
-  </a>
-  <a class="btn btn-secondary" href="{{ url_for('admin') }}">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-    Database Records
-  </a>
-</div>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Set the prediction timestamp to the current time
-  document.getElementById('predictionTimestamp').textContent = new Date().toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit'
+  document.getElementById("predictionTimestamp").textContent = new Date().toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
   });
 </script>
 {% endblock %}

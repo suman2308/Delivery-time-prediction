@@ -1,4 +1,4 @@
-"""Machine learning utilities for Smart Delivery.
+"""Machine learning utilities for CourierAI.
 
 Provides:
 - A preprocessing + feature engineering pipeline.
@@ -15,8 +15,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
-import sqlite3
+from typing import Any, Dict, Optional
 
 import joblib
 import numpy as np
@@ -52,22 +51,6 @@ TARGET = "delivery_time"
 MODEL_META_PATH = config.MODEL_PATH + ".meta.json"
 
 # ---------------------------------------------------------------------------
-# Data helpers
-# ---------------------------------------------------------------------------
-def rows_to_dataframe(rows: List[sqlite3.Row]) -> pd.DataFrame:
-    """Public helper for converting sqlite rows to DataFrame, used by charts.
-    Delegates to internal _rows_to_dataframe.
-    """
-    return _rows_to_dataframe(rows)
-
-def _rows_to_dataframe(rows: List[sqlite3.Row]) -> pd.DataFrame:
-    """Convert raw SQLite rows to a pandas DataFrame.
-    The helper is deliberately tiny – the heavy lifting lives in the pipeline.
-    """
-    data = [{k: r[k] for k in r.keys()} for r in rows]
-    return pd.DataFrame(data)
-
-# ---------------------------------------------------------------------------
 # Pre‑processing / feature engineering
 # ---------------------------------------------------------------------------
 def _build_preprocessor() -> ColumnTransformer:
@@ -87,8 +70,6 @@ def _build_preprocessor() -> ColumnTransformer:
 # ---------------------------------------------------------------------------
 # Model registry – candidate regressors
 # ---------------------------------------------------------------------------
-# (Dead functions removed: get_training_stats, get_model_meta, predict_with_confidence,
-#  assess_delay_risk, generate_explanation_plot, generate_recommendation)
 
 
 def _candidate_models() -> Dict[str, Any]:
@@ -129,7 +110,7 @@ def train_and_save(test_size: float = 0.2, random_state: int = 42) -> TrainResul
     if len(rows) < 10:
         raise ValueError("At least 10 historical orders are required to train model.")
 
-    df = _rows_to_dataframe(rows)
+    df = db.rows_to_dataframe(rows)
     X = df[FEATURE_COLUMNS]
     y = df[TARGET]
 
@@ -201,19 +182,4 @@ def predict_delivery(
     ])
     out = pipe.predict(X)
     return float(np.maximum(out[0], 2.0))
-
-# ---------------------------------------------------------------------------
-# Evaluation on the full DB – useful for dashboards.
-# ---------------------------------------------------------------------------
-def evaluate_on_db(pipeline: Optional[Pipeline] = None) -> Tuple[float, float, int]:
-    pipe = pipeline or load_pipeline()
-    rows = db.fetch_orders_for_training()
-    df = _rows_to_dataframe(rows)
-    if df.empty:
-        return 0.0, 0.0, 0
-    preds = pipe.predict(df[FEATURE_COLUMNS])
-    mae = float(mean_absolute_error(df[TARGET], preds))
-    rmse = float(np.sqrt(mean_squared_error(df[TARGET], preds)))
-    return mae, rmse, len(df)
-
 

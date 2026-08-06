@@ -1,8 +1,8 @@
 <div align="center">
-  <h1>📦 SmartDelivery — ML-Powered Delivery Duration Predictor</h1>
+  <h1>📦 CourierAI — AI-Powered Delivery Time Prediction</h1>
   <p>
     <strong>End-to-end machine learning platform</strong> for predicting shipment delivery times across Indian cities.<br>
-    Trained on 49,639 real DTDC courier records. Achieves <strong>MAE 0.54 days</strong> (≈13 hours) with a tuned HistGradientBoosting model.
+    Trained on 49,639 real courier records. Achieves <strong>MAE 0.54 days</strong> (≈13 hours) with a tuned HistGradientBoosting model.
   </p>
   <p>
     <a href="#-features">Features</a> •
@@ -37,11 +37,14 @@ This project builds a production-ready ML system that predicts delivery duration
 
 - **🔮 ML-Powered Predictions** — Tuned HistGradientBoostingRegressor achieving MAE of 0.54 days (≈13 hours)
 - **🌐 REST API** — Clean JSON API (`POST /api/predict`) for easy integration into any logistics workflow
-- **📊 Live Dashboard** — Real-time analytics with model KPIs (MAE, R²), prediction volume, mode impact charts, and route heatmaps
+- **📊 Live Dashboard** — Real-time analytics with model KPIs (MAE, R²), prediction volume, mode impact charts, and top-route analytics
 - **📝 Prediction Audit Log** — Every prediction is logged with full input parameters, predicted value, and model version
-- **🎨 Modern Glassmorphic UI** — Dark/light theme, responsive design, interactive ambient scene, and professional typography
+- **🎨 Premium Design System** — Dark/light themes, cohesive tokens, fluid responsive layouts, and professional typography
 - **🏗️ Versioned Model Artifacts** — Semantic versioning for ML models with companion metadata (hyperparameters, metrics, training date)
 - **🔒 Safe Unknown Categories** — OneHotEncoder with `handle_unknown="ignore"` gracefully handles unseen cities or modes
+- **👤 User Accounts** — Register, log in, and log out with hashed passwords (Werkzeug scrypt); the analytics dashboard and data explorer are behind a login
+- **🔑 Secured REST API** — Per-user API keys (hashed at rest, revocable) required on `POST /api/predict`, with per-key rate limiting and JSON 429 responses
+- **💳 Plans & quotas** — Every account starts on the free **Free** plan (50 predictions/month); **Pro ₹299/month** and **Pro+ ₹1,299/year** unlock unlimited predictions. Quotas are enforced on the API (HTTP `402`) and on logged-in web predictions
 
 ---
 
@@ -61,7 +64,7 @@ No login required. Open it in any browser and start making predictions immediate
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | HTML5, CSS3 (Glassmorphism), JavaScript (ES6), Jinja2 templates |
+| **Frontend** | HTML5, CSS3 (premium design system), JavaScript (ES6), Jinja2 templates |
 | **Backend** | Python 3.10+, Flask 3.0 |
 | **Machine Learning** | scikit-learn (HistGradientBoostingRegressor), pandas, NumPy |
 | **Model Evaluation** | Cross-validation, Grid Search, permutation importance |
@@ -146,8 +149,8 @@ graph TB
 
 | Feature | Type | Description |
 |---|---|---|
-| `origin` | Categorical | Origin city (32 Indian cities) |
-| `destination` | Categorical | Destination city (32 Indian cities) |
+| `origin` | Categorical | Origin city (30+ Indian cities) |
+| `destination` | Categorical | Destination city (30+ Indian cities) |
 | `booking_weekday` | Categorical | Day of week (Monday–Sunday) |
 | `mode` | Categorical | Surface, Express, or Air Cargo |
 | `nature_of_consignment` | Categorical | Dox (Documents) or Non-Dox (Parcel) |
@@ -168,6 +171,24 @@ Numerics: Passed through unchanged (tree-based model handles scale natively).
 | RandomForestRegressor | 0.5793 | 0.7430 | 0.7349 | 14.1s |
 
 *XGBoost was not available in the environment — evaluation was skipped.*
+
+### Experiment Harness (`train_experiments.py`)
+
+A full benchmarking suite adapted from the DTDC Kaggle notebook — runnable from the **admin panel** (Experiment Lab) or the CLI. It compares **5 base models** (Random Forest, XGBoost, CatBoost, SVR/SVC, MLP), **voting & stacking hybrids**, and up to **17 stacking combinations** — for both **regression** (delivery days) and **classification** (delayed / on-time) on the same stratified 20% test split.
+
+```bash
+# CLI usage
+python train_experiments.py --scope smoke    # 600 rows, ~30s (sanity check)
+python train_experiments.py --scope quick    # 5,000 rows, ~2 min
+python train_experiments.py --scope reduced  # full data, 6 paradigm-covering stack combos
+python train_experiments.py --scope full     # full data, all 17 combos
+```
+
+Artifacts:
+- `models/experiment_results.json` — latest results, consumed by `/model-comparison`
+- `dtdc_results/` — per-run progress CSVs (crash-resume) + `status.json` (admin UI polling)
+
+Graceful fallbacks: if `xgboost`/`catboost` aren't installed, those candidates are skipped automatically rather than breaking the run.
 
 ### Hyperparameter Tuning
 
@@ -225,13 +246,12 @@ A randomized search over **150 of 960** possible configurations with 5-fold cros
 smart-delivery-prediction/
 ├── app.py                      # Flask application & route handlers
 ├── dtdc_model.py               # Production DTDC model (training + prediction wrapper)
+├── train_experiments.py        # Base/hybrid/stacking experiment harness (admin + CLI)
 ├── config.py                   # Configuration & environment variables
 ├── database.py                 # SQLite access layer
 ├── charts.py                   # Matplotlib chart generation for dashboard
-├── ml_model.py                 # Legacy synthetic model (still used by dashboard)
-├── seed_data.py                # Synthetic data generator (legacy)
-├── train_model.py              # Legacy model training script
-├── cli.py                      # Legacy CLI predictor
+├── ml_model.py                 # Legacy synthetic model (bootstrap/tests only)
+├── seed_data.py                # Synthetic data generator (legacy bootstrap)
 ├── schema.sql                  # Database schema
 ├── requirements.txt            # Python dependencies
 ├── render.yaml                 # Render deployment config
@@ -240,9 +260,7 @@ smart-delivery-prediction/
 ├── README.md
 │
 ├── data/
-│   ├── dtdc_preprocessing.py       # Data preprocessing pipeline
-│   ├── dtdc_model_evaluation.py    # Candidate model evaluation framework
-│   └── migrate_dtdc.py             # DTDC CSV → DB migration (legacy)
+│   └── dtdc_preprocessing.py       # Data preprocessing pipeline
 │
 ├── models/
 │   ├── dtdc_hgb_v1_0_0.joblib      # Production model artifact (564 KB)
@@ -250,21 +268,25 @@ smart-delivery-prediction/
 │   └── .gitkeep
 │
 ├── static/
-│   ├── css/app.css                  # Design system (glassmorphism, tokens)
-│   ├── js/scene.js                  # Animated ambient scene
+│   ├── css/app.css                  # Design system (tokens, components, themes)
+│   ├── js/app.js                    # Interactions (theme, nav, charts, toasts)
 │   └── plots/                       # Generated chart images
 │
 ├── templates/
-│   ├── base.html                    # Layout (navbar, footer, theme)
-│   ├── index.html                   # Prediction form
+│   ├── base.html                    # Layout (navbar, footer, toast/modal regions)
+│   ├── index.html                   # Landing page + live predictor
+│   ├── demo.html                    # AI Prediction Demo (shared form)
+│   ├── _predict_form.html           # Reusable prediction form partial
 │   ├── result.html                  # Prediction result
 │   ├── dashboard.html               # Analytics dashboard
-│   └── admin.html                   # Database explorer
+│   ├── admin.html                   # Data explorer + experiment lab
+│   ├── predict.html / plans.html / model_comparison.html / analytics.html / api_docs.html
+│   ├── account.html / tracking.html / pricing.html / about.html / blog.html / contact.html
+│   ├── login.html / register.html / forgot-password.html
+│   └── error.html                   # 404 / 500 / 429 pages
 │
-├── tests/
-│   └── test_delivery.py             # Integration tests
-│
-└── utils/                          # (removed in cleanup)                         # (empty — removed in cleanup)
+└── tests/
+    └── test_delivery.py             # Integration tests
 ```
 
 ---
@@ -307,6 +329,31 @@ Open `http://127.0.0.1:5000` in your browser.
 
 ---
 
+## 🔐 Admin Panel
+
+The admin panel (data explorer + demo mode + experiment lab) lives at **`/admin`** and is restricted to specific accounts.
+
+1. **Set `ADMIN_EMAILS`** to the email(s) that should have admin access before starting the app:
+
+   ```bash
+   # Windows (PowerShell)
+   $env:ADMIN_EMAILS = "you@example.com"
+   # macOS / Linux
+   export ADMIN_EMAILS="you@example.com"
+   ```
+
+   Multiple admins: `ADMIN_EMAILS="a@x.com,b@y.com"`.
+
+2. **Register an account** with that exact email (or log in if it already exists).
+
+3. Visit **`/admin`** — the Admin link also appears in the navigation bar for admins.
+
+Non-admin accounts are redirected away from `/admin`, and anonymous visitors are sent to the login page. If no `ADMIN_EMAILS` is set, the admin features are hidden entirely.
+
+> **Experiment Lab in containers:** the lab trains on `DTDC_Improved_Dataset.csv` from the project root. The CSV is git-ignored (24 MB), so Docker/Render deployments that don't mount it will report a `FileNotFoundError` status when an experiment is started — predictions and everything else keep working. Mount the CSV or run experiments from a local checkout.
+
+---
+
 ## 🔧 Environment Variables
 
 | Variable | Default | Description |
@@ -316,6 +363,9 @@ Open `http://127.0.0.1:5000` in your browser.
 | `BOOTSTRAP_ON_START` | `1` | Run legacy bootstrap on startup |
 | `DELIVERY_DB_PATH` | `delivery.db` | SQLite database path |
 | `DELIVERY_MODEL_PATH` | `models/delivery_regressor.joblib` | *(Legacy)* Old model path |
+| `FREE_PLAN_LIMIT` | `50` | Monthly prediction quota for the free plan |
+| `DTDC_DATA_PATH` | `DTDC_Improved_Dataset.csv` | Path to the dataset used by `train_experiments.py` |
+| `ADMIN_EMAILS` | *(empty)* | Comma-separated emails granted admin access (Experiment Lab, demo mode) |
 
 > The DTDC model path is managed internally by `dtdc_model.py` and is not configurable via environment variables.
 
@@ -380,13 +430,33 @@ git push origin main
 
 ### `POST /api/predict`
 
-Predict delivery duration in days.
+Predict delivery duration in days. **Authentication required** — send your API key in the
+`X-API-Key` header (or `Authorization: Bearer <key>`).
+
+**Getting a key:** register an account — the key is shown once in the confirmation toast,
+and can be regenerated anytime from the **Account** page (`/account`), which also offers
+**Show / Hide / Copy** buttons for it. Keys are stored hashed (SHA-256) for API auth plus an
+**encrypted** copy (Fernet, derived from `SECRET_KEY` or `KEY_ENCRYPTION_KEY`) so the owner
+can reveal/copy it on the account page — a database leak alone never exposes keys.
+Keep `SECRET_KEY`/`KEY_ENCRYPTION_KEY` stable across deploys, or stored keys become
+undecryptable. Keys are revoked immediately on regeneration.
+
+**Rate limits:** `30 requests/minute` and `1000 requests/day` per API key by default
+(configurable via `API_RATE_LIMIT` / `API_RATE_LIMIT_DAILY`). Login (`10/min`) and
+registration (`5/min`) are rate limited per IP. Exceeding a limit returns `429`.
+
+**Plan quota:** every account starts on the free plan (50 predictions/month,
+configurable via `FREE_PLAN_LIMIT`). The counter resets on the 1st of each month and every
+successful prediction is charged against it. Exceeding the quota returns `402` with the
+current plan/usage in the body; upgrading to Pro (₹299/month) or Pro+ (₹1,299/year — demo billing,
+via `/account/upgrade`) unlocks unlimited predictions.
 
 **Request:**
 
 ```bash
 curl -X POST http://127.0.0.1:5000/api/predict \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: scp_live_YOUR_KEY" \
   -d '{
     "origin": "Mumbai",
     "destination": "Pune",
@@ -410,11 +480,35 @@ curl -X POST http://127.0.0.1:5000/api/predict \
 }
 ```
 
-**Error Response (400):**
+**Error Responses:**
 
 ```json
 {
   "error": "origin is required."
+}
+```
+
+```json
+// 401 — missing/invalid API key
+{
+  "error": "A valid API key is required. Send it in the X-API-Key header."
+}
+```
+
+```json
+// 429 — rate limit exceeded
+{
+  "error": "Rate limit exceeded. Please slow down and try again later."
+}
+```
+
+```json
+// 402 — free-plan prediction quota exhausted
+{
+  "error": "You have used all 50 free predictions this month. Upgrade to Pro for unlimited predictions.",
+  "plan": "basic",
+  "limit": 50,
+  "used": 50
 }
 ```
 
@@ -447,8 +541,11 @@ curl -X POST http://127.0.0.1:5000/api/predict \
 - [ ] **Automated retraining** — CI/CD pipeline that retrains on new data and hot-swaps model artifacts
 - [ ] **Interactive charts** — Replace static Matplotlib PNGs with interactive Plotly/D3.js visualizations
 - [x] **Docker support** — Containerize the application with Docker for consistent deployments (Dockerfile + docker-compose.yml included)
-- [ ] **CI/CD pipeline** — Automated testing with GitHub Actions on every push
-- [ ] **User authentication** — Add API keys and rate limiting for production use
+- [x] **CI/CD pipeline** — Automated testing with GitHub Actions on every push
+- [x] **User authentication** — Account registration, session-based login/logout, and protected dashboard/admin routes
+- [x] **API keys & rate limiting** — Hashed per-user API keys (required on `POST /api/predict`) with per-key rate limiting
+- [x] **Plans & prediction quotas** — Free plan (50/month) with Pro upgrades (₹299/mo, ₹1,299/yr) for unlimited predictions
+- [x] **Model experiment lab** — Admin-runnable base/hybrid/stacking benchmarks (regression + classification) feeding the Model Comparison page
 - [ ] **Expanded test coverage** — Add unit tests for `dtdc_model.py` and edge cases
 
 ---

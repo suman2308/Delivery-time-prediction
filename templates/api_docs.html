@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}API — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:var(--space-10);">
+      <span class="eyebrow">Developer API</span>
+      <h1 style="font-size:var(--text-5xl);">One endpoint. <span class="text-gradient">Every ETA.</span></h1>
+      <p class="lead">Post shipment details, get back predicted delivery duration as JSON — with model version and algorithm attached.</p>
+    </div>
+
+    {% if current_user %}
+    <!-- Key management -->
+    <div class="card card-pad reveal" style="max-width:760px;margin:0 auto var(--space-12);" id="api-key">
+      <div class="flex-between wrap gap-3 mb-4">
+        <div>
+          <span class="eyebrow">Your key</span>
+          <h2 style="margin:0.5rem 0 0;font-size:var(--text-2xl);">Personal API key</h2>
+        </div>
+        <span class="badge badge-primary"><span class="dot"></span>{{ plan_status.plan_name }} plan</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="apiKeyValue">API key</label>
+        <div class="input-group">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          <code id="apiKeyValue" class="api-key-value" data-masked="{{ user['api_key_hint'] or 'No key generated yet' }}">{{ user['api_key_hint'] or 'No key generated yet' }}</code>
+        </div>
+        <div class="flex gap-2 mt-2 wrap">
+          <button type="button" id="keyShowBtn" class="btn btn-outline btn-sm">Show</button>
+          <button type="button" id="keyHideBtn" class="btn btn-outline btn-sm" style="display:none;">Hide</button>
+          <button type="button" id="keyCopyBtn" class="btn btn-primary btn-sm" disabled>Copy</button>
+          <form method="post" action="{{ url_for('regenerate_api_key') }}" style="margin-left:auto;">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Regenerate
+            </button>
+          </form>
+        </div>
+        <p class="text-xs text-muted" style="margin:0.5rem 0 0;">Keys are stored hashed &amp; encrypted. Regenerating revokes the old key immediately. See full management in your <a href="{{ url_for('account') }}">profile</a>.</p>
+      </div>
+    </div>
+    {% else %}
+    <div class="card card-pad reveal text-center" style="max-width:640px;margin:0 auto var(--space-12);">
+      <div class="key-demo" style="max-width:340px;margin:0 auto 1rem;" aria-hidden="true">scp_live_••••••••••••••••••••••••••••••</div>
+      <h2 style="margin:0 0 0.5rem;font-size:var(--text-2xl);">Get your API key</h2>
+      <p class="text-muted" style="max-width:440px;margin:0 auto 1.5rem;">Register a free account to generate a personal <code>scp_live_</code> key — it's shown once, stored encrypted, and revocable anytime.</p>
+      <div class="flex-center gap-2 wrap">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('register') }}">Create a free account</a>
+        <a class="btn btn-outline btn-lg" href="{{ url_for('login') }}">Log in</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Documentation -->
+    <div class="grid grid-2" style="align-items:start;">
+      <div class="reveal">
+        <div class="card mb-4">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Endpoint</h3>
+          <div class="code-block"><pre>POST /api/predict</pre></div>
+          <div class="code-block mt-4"><pre>GET  /health       → {"status": "healthy"}
+GET  /metrics      → live model metrics JSON</pre></div>
+        </div>
+
+        <div class="card mb-4">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Authentication &amp; headers</h3>
+          <p class="text-sm text-muted" style="margin-top:-0.5rem;">Send your key in the <code>X-API-Key</code> header — or as a Bearer token.</p>
+          <div class="code-block"><pre>X-API-Key: scp_live_&lt;your-key&gt;
+# or
+Authorization: Bearer scp_live_&lt;your-key&gt;
+Content-Type: application/json</pre></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Rate limits &amp; errors</h3>
+          <ul class="pricing-features">
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>30 requests / minute</strong> per API key</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>1,000 requests / day</strong> per API key</li>
+          </ul>
+          <div class="table-wrap">
+            <table class="table table-sm">
+              <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td class="strong mono">400</td><td>Invalid payload — check field names/types</td></tr>
+                <tr><td class="strong mono">401</td><td>Missing or invalid API key</td></tr>
+                <tr><td class="strong mono">402</td><td>Plan prediction quota exhausted</td></tr>
+                <tr><td class="strong mono">429</td><td>Rate limit exceeded</td></tr>
+                <tr><td class="strong mono">503</td><td>Model not available</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal reveal-delay-1">
+        <div class="card mb-4">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Request</h3>
+          <div class="code-block"><pre>{
+  "origin": "Mumbai",
+  "destination": "Pune",
+  "booking_weekday": "Wednesday",
+  "mode": "Surface",
+  "nature_of_consignment": "Dox",
+  "total_pieces": 1,
+  "actual_weight": 0.5,
+  "volumetric_weight": 0.8,
+  "chargeable_weight": 0.5
+}</pre></div>
+          <h3 class="card-title mt-6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Response</h3>
+          <div class="code-block"><pre>{
+  "predicted_time_days": 2.84,
+  "model_version": "1.0.0",
+  "algorithm": "HistGradientBoostingRegressor"
+}</pre></div>
+        </div>
+
+        <div class="card mb-4">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><code>cURL</code></svg> cURL</h3>
+          <div class="code-block"><pre>curl -X POST https://courierai.example.com/api/predict \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: scp_live_YOUR_KEY" \
+  -d '{
+    "origin": "Mumbai",
+    "destination": "Pune",
+    "booking_weekday": "Wednesday",
+    "mode": "Surface",
+    "nature_of_consignment": "Dox",
+    "total_pieces": 1,
+    "actual_weight": 0.5,
+    "volumetric_weight": 0.8,
+    "chargeable_weight": 0.5
+  }'</pre></div>
+        </div>
+
+        <div class="card mb-4">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Python</h3>
+          <div class="code-block"><pre>import requests
+
+resp = requests.post(
+    "https://courierai.example.com/api/predict",
+    headers={"X-API-Key": "scp_live_YOUR_KEY"},
+    json={
+        "origin": "Mumbai",
+        "destination": "Pune",
+        "booking_weekday": "Wednesday",
+        "mode": "Surface",
+        "nature_of_consignment": "Dox",
+        "total_pieces": 1,
+        "actual_weight": 0.5,
+        "volumetric_weight": 0.8,
+        "chargeable_weight": 0.5,
+    },
+)
+print(resp.json()["predicted_time_days"])  # 2.84</pre></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> JavaScript</h3>
+          <div class="code-block"><pre>const resp = await fetch("https://courierai.example.com/api/predict", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": "scp_live_YOUR_KEY"
+  },
+  body: JSON.stringify({
+    origin: "Mumbai",
+    destination: "Pune",
+    booking_weekday: "Wednesday",
+    mode: "Surface",
+    nature_of_consignment: "Dox",
+    total_pieces: 1,
+    actual_weight: 0.5,
+    volumetric_weight: 0.8,
+    chargeable_weight: 0.5
+  })
+});
+const data = await resp.json();
+console.log(data.predicted_time_days);</pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

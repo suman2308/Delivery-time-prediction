@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Predict — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:var(--space-10);">
+      <span class="eyebrow">Predict</span>
+      <h1 style="font-size:var(--text-5xl);">Estimate a delivery time <span class="text-gradient">live</span></h1>
+      <p class="lead">Run the production model right here. Choose a route and parcel profile, and get a delivery-duration estimate backed by 49,639 real courier records.</p>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start;">
+      <div class="card card-pad reveal" style="box-shadow:var(--shadow-lg);">
+        {% include "_predict_form.html" %}
+      </div>
+
+      <div class="reveal reveal-delay-1">
+        <!-- Live summary preview -->
+        <div class="card mb-4">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Live Shipment Summary
+          </h3>
+          <p class="text-sm text-muted" style="margin-top:-0.5rem;">Your parameters update in real time as you edit the form.</p>
+
+          <div class="demo-route" style="margin-bottom:1rem;">
+            <span class="city" id="previewOrigin">Mumbai</span>
+            <span class="route-line"></span>
+            <span class="city" id="previewDest">Pune</span>
+          </div>
+
+          <div class="demo-metric-row">
+            <div class="demo-metric">
+              <div class="k">Mode</div>
+              <div class="v" style="font-size:1rem;" id="previewMode">Surface</div>
+            </div>
+            <div class="demo-metric">
+              <div class="k">Type</div>
+              <div class="v" style="font-size:1rem;" id="previewType">Dox</div>
+            </div>
+            <div class="demo-metric">
+              <div class="k">Pieces</div>
+              <div class="v" style="font-size:1rem;" id="previewPieces">1</div>
+            </div>
+            <div class="demo-metric">
+              <div class="k">Booking Day</div>
+              <div class="v" style="font-size:1rem;" id="previewDay">Wednesday</div>
+            </div>
+          </div>
+
+          <div class="demo-metric-row" style="margin-top:0.75rem;">
+            <div class="demo-metric">
+              <div class="k">Actual Wt.</div>
+              <div class="v" style="font-size:1rem;" id="previewActWt">1.00 kg</div>
+            </div>
+            <div class="demo-metric">
+              <div class="k">Vol. Wt.</div>
+              <div class="v" style="font-size:1rem;" id="previewVolWt">1.00 kg</div>
+            </div>
+            <div class="demo-metric">
+              <div class="k">Chargeable</div>
+              <div class="v" style="font-size:1rem;" id="previewChgWt">1.00 kg</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- What you get -->
+        <div class="card">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Every result includes
+          </h3>
+          <ul class="pricing-features">
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Predicted delivery duration in days</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Confidence &amp; risk assessment</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Model version + full audit trail</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>One-click report download</li>
+          </ul>
+          {% if current_user %}
+          <a class="btn btn-outline btn-block" href="{{ url_for('api_docs') }}">Use it via the API instead</a>
+          {% else %}
+          <a class="btn btn-outline btn-block" href="{{ url_for('register') }}">Create a free account for API access</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

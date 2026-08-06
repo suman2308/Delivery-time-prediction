@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Contact — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:var(--space-12);">
+      <span class="eyebrow">Contact</span>
+      <h1 style="font-size:var(--text-5xl);">Let's talk <span class="text-gradient">logistics</span></h1>
+      <p class="lead">Questions about predictions, integrations, or enterprise deployments? Our team is ready to help.</p>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start;">
+      <div class="reveal">
+        <div class="card card-pad">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Send us a message
+          </h3>
+          <form data-demo data-validate novalidate>
+            <div class="field">
+              <label class="field-label" for="contactName">Your name</label>
+              <input id="contactName" type="text" class="input" placeholder="Priya Sharma" required>
+            </div>
+            <div class="field">
+              <label class="field-label" for="contactEmail">Work email</label>
+              <input id="contactEmail" type="email" class="input" placeholder="priya@company.com" required>
+            </div>
+            <div class="field">
+              <label class="field-label" for="contactTopic">Topic</label>
+              <select id="contactTopic" class="select">
+                <option>General inquiry</option>
+                <option>API integration</option>
+                <option>Enterprise deployment</option>
+                <option>Custom model training</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="contactMessage">Message</label>
+              <textarea id="contactMessage" class="textarea" placeholder="Tell us about your network and what you'd like to predict…" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg btn-block">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Send message
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="reveal reveal-delay-1">
+        <div class="stat-card mb-4">
+          <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+          <div class="stat-label">Email</div>
+          <div class="stat-value" style="font-size:1.1rem;">hello@smartcourierprediction.com</div>
+        </div>
+        <div class="stat-card mb-4">
+          <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+          <div class="stat-label">Sales</div>
+          <div class="stat-value" style="font-size:1.1rem;">+91 90000 00000</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+          <div class="stat-label">Headquarters</div>
+          <div class="stat-value" style="font-size:1.1rem;">Mumbai, India</div>
+        </div>
+
+        <div class="alert alert-info mt-4" role="note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>This contact form is a preview. In production, messages are routed to the operations team within minutes.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

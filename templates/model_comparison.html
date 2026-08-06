@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Model Comparison — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="flex-between wrap gap-4 mb-6 reveal">
+      <div>
+        <span class="eyebrow">Model comparison</span>
+        <h1 style="margin:0.75rem 0 0.5rem;font-size:var(--text-4xl);">Every candidate, <span class="text-gradient">head to head</span></h1>
+        <p class="text-muted" style="margin:0;">
+          {% if results %}
+            Results from the latest experiment run — scope <code>{{ results.scope }}</code>,
+            {{ results.dataset_rows|default(49639, true) }} rows, 20% test split
+            (generated {{ results.generated_at }}).
+          {% else %}
+            Hold-out test metrics benchmarked on the DTDC courier dataset (49,639 rows, 20% test split).
+            {% if is_admin %}Run a full experiment from the <a href="{{ url_for('admin') }}">admin panel</a> to replace the fallback benchmarks.{% endif %}
+          {% endif %}
+        </p>
+      </div>
+      {% if best_reg %}
+      <span class="badge badge-success"><span class="dot"></span> Best regression: {{ best_reg.label }}</span>
+      {% endif %}
+    </div>
+
+    <!-- Task toggle: regression / classification -->
+    <div class="card reveal" style="padding:var(--space-6);">
+      <div data-tabs>
+        <div class="tabs" role="tablist" aria-label="Model task">
+          <button class="tab-btn active" type="button" role="tab" data-tab="panel-regression" aria-selected="true">Regression</button>
+          <button class="tab-btn" type="button" role="tab" data-tab="panel-classification" aria-selected="false">Classification</button>
+        </div>
+
+    <!-- ════════════ REGRESSION ════════════ -->
+    <div class="tab-panel active" id="panel-regression">
+      <div class="card reveal" style="overflow:hidden;padding:0;">
+        <div class="card-head" style="padding:var(--space-5) var(--space-6);margin:0;border-bottom:1px solid var(--border);">
+          <h3 style="margin:0;">Regression — delivery time in days</h3>
+          <span class="badge badge-info">{{ reg_models|length }} models</span>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Category</th>
+                <th>MAE (days)</th>
+                <th>RMSE (days)</th>
+                <th>R&sup2;</th>
+                <th>Fit time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in reg_models %}
+              <tr data-row class="{% if m.live %}model-best{% endif %}">
+                <td class="strong">{{ m.label }}{% if m.live %}<span class="badge badge-success" style="margin-left:0.5rem;"><span class="dot"></span> Production</span>{% endif %}</td>
+                <td><span class="badge {% if m.category == 'Production' %}badge-success{% elif m.category == 'Base' %}badge-primary{% elif m.category == 'Hybrid' %}badge-info{% else %}badge{% endif %}">{{ m.category }}</span></td>
+                <td class="strong">{{ "%.3f"|format(m.mae) }}</td>
+                <td>{{ "%.3f"|format(m.rmse) }}</td>
+                <td>{{ "%.3f"|format(m.r2) }}</td>
+                <td>{{ "%.1f"|format(m.train_s|float) }} s</td>
+                <td>
+                  {% if m.live %}<span class="badge badge-success"><span class="dot"></span> Online</span>
+                  {% else %}<span class="badge">Benchmark</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Regression visual bars -->
+      <div class="grid grid-3 mt-8">
+        <div class="card reveal">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Mean Absolute Error</h3>
+          <p class="text-xs text-muted" style="margin-top:-0.5rem;">Lower is better</p>
+          {% set max_mae = reg_models | map(attribute='mae') | max %}
+          {% for m in reg_models %}
+          <div class="metric-row">
+            <div class="metric-label">{{ m.label }} <span class="text-muted">&middot; {{ "%.3f"|format(m.mae) }}</span></div>
+            <div class="metric-bar"><span style="width:{{ (100 - (m.mae / max_mae * 100)) | round | int }}%;"></span></div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="card reveal reveal-delay-1">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> R&sup2; Score</h3>
+          <p class="text-xs text-muted" style="margin-top:-0.5rem;">Higher is better</p>
+          {% set max_r2 = reg_models | map(attribute='r2') | max %}
+          {% for m in reg_models %}
+          <div class="metric-row">
+            <div class="metric-label">{{ m.label }} <span class="text-muted">&middot; {{ "%.3f"|format(m.r2) }}</span></div>
+            <div class="metric-bar"><span style="width:{{ (m.r2 / max_r2 * 100) | round | int }}%;"></span></div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="card reveal reveal-delay-2">
+          <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> RMSE (days)</h3>
+          <p class="text-xs text-muted" style="margin-top:-0.5rem;">Lower is better</p>
+          {% set max_rmse = reg_models | map(attribute='rmse') | max %}
+          {% for m in reg_models %}
+          <div class="metric-row">
+            <div class="metric-label">{{ m.label }} <span class="text-muted">&middot; {{ "%.3f"|format(m.rmse) }}</span></div>
+            <div class="metric-bar"><span style="width:{{ (100 - (m.rmse / max_rmse * 100)) | round | int }}%;"></span></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ CLASSIFICATION ════════════ -->
+    <div class="tab-panel" id="panel-classification">
+      {% if cls_models %}
+      <div class="card reveal" style="overflow:hidden;padding:0;">
+        <div class="card-head" style="padding:var(--space-5) var(--space-6);margin:0;border-bottom:1px solid var(--border);">
+          <h3 style="margin:0;">Classification — delayed vs on-time</h3>
+          <span class="badge badge-info">{{ cls_models|length }} models</span>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Category</th>
+                <th>Accuracy</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F1</th>
+                <th>Fit time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in cls_models %}
+              <tr data-row class="{% if m.live %}model-best{% endif %}">
+                <td class="strong">{{ m.label }}{% if m.live %}<span class="badge badge-success" style="margin-left:0.5rem;"><span class="dot"></span> Production</span>{% endif %}</td>
+                <td><span class="badge {% if m.category == 'Production' %}badge-success{% elif m.category == 'Base' %}badge-primary{% elif m.category == 'Hybrid' %}badge-info{% else %}badge{% endif %}">{{ m.category }}</span></td>
+                <td class="strong">{{ "%.3f"|format(m.accuracy) }}</td>
+                <td>{{ "%.3f"|format(m.precision) }}</td>
+                <td>{{ "%.3f"|format(m.recall) }}</td>
+                <td>{{ "%.3f"|format(m.f1) }}</td>
+                <td>{{ "%.1f"|format(m.train_s|float) }} s</td>
+                <td>
+                  {% if m.live %}<span class="badge badge-success"><span class="dot"></span> Online</span>
+                  {% else %}<span class="badge">Benchmark</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mt-8 reveal">
+        <h3 class="card-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> F1 Score</h3>
+        <p class="text-xs text-muted" style="margin-top:-0.5rem;">Higher is better</p>
+        {% set max_f1 = cls_models | map(attribute='f1') | max %}
+        {% for m in cls_models %}
+        <div class="metric-row">
+          <div class="metric-label">{{ m.label }} <span class="text-muted">&middot; {{ "%.3f"|format(m.f1) }}</span></div>
+          <div class="metric-bar"><span style="width:{{ (m.f1 / max_f1 * 100) | round | int }}%;"></span></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card reveal">
+        <div class="empty-state">
+          <div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <h3>No classification results yet</h3>
+          <p>Run an experiment from the admin panel to benchmark delayed-delivery classifiers (Accuracy, Precision, Recall, F1).</p>
+          {% if is_admin %}<a class="btn btn-primary" href="{{ url_for('admin') }}">Open admin panel</a>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-8 reveal" role="note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span>
+        <strong>Methodology.</strong> Every candidate is evaluated on the same 20% held-out test split (seed 42, stratified by <code>Improved_Delayed</code>). Hybrids are voting &amp; stacking ensembles over all five base learners; stacking uses 3-fold CV with a meta-learner. The production row is the live HistGradientBoosting model powering every prediction. {% if results %}Stacking combinations are listed under the <em>Stacking</em> category when a reduced/full scope is run.{% endif %}
+      </span>
+    </div>
+
+    <div class="flex-center mt-8 reveal">
+      <a class="btn btn-primary btn-lg" href="{{ url_for('predict_page') }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Try the production model
+      </a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

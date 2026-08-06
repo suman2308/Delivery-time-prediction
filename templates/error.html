@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{% if code == 404 %}Page Not Found{% else %}Something Went Wrong{% endif %} — CourierAI{% endblock %}
+{% block content %}
+
+<section class="error-page">
+  <div class="error-code reveal">{{ code }}</div>
+  <h1 class="error-title reveal reveal-delay-1">
+    {% if code == 404 %}This shipment route doesn't exist{% else %}A courier dropped the parcel{% endif %}
+  </h1>
+  <p class="error-text reveal reveal-delay-2">
+    {% if code == 404 %}
+    The page you're looking for was moved, renamed, or never shipped. Check the URL, or head back to a page we know works.
+    {% else %}
+    Something went wrong on our side while processing your request. The operations team has been notified — please try again shortly.
+    {% endif %}
+  </p>
+  <div class="flex-center gap-3 wrap reveal reveal-delay-2">
+    <a class="btn btn-primary btn-lg" href="{{ url_for('index') }}">Back to home</a>
+    <a class="btn btn-outline btn-lg" href="{{ url_for('demo') }}">Run a prediction</a>
+    <a class="btn btn-ghost btn-lg" href="{{ url_for('contact') }}">Contact support</a>
+  </div>
+</section>
+
+{% endblock %}

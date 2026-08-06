@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Pricing — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:var(--space-8);">
+      <span class="eyebrow">Pricing</span>
+      <h1 style="font-size:var(--text-5xl);">Start free. <span class="text-gradient">Upgrade when you grow.</span></h1>
+      <p class="lead">Every new account starts on the free plan with 50 predictions a month. Need more? Pick Pro or Pro+ for unlimited predictions.</p>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="pricing-card reveal">
+        <div class="plan-name">Free</div>
+        <p class="plan-desc">Free forever. Perfect for trying delivery prediction.</p>
+        <div class="price">
+          <span class="amount">₹0</span>
+          <span class="price-period">/forever</span>
+        </div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>50 predictions / month</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Personal API key</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Analytics dashboard</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Community support</li>
+        </ul>
+        {% if current_user and plan_status %}
+          {% if plan_status.plan == "basic" %}
+            <button class="btn btn-outline btn-block" disabled>Your current plan</button>
+          {% else %}
+            <form method="post" action="{{ url_for('upgrade_plan') }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="plan" value="basic">
+              <button type="submit" class="btn btn-outline btn-block">Switch to free</button>
+            </form>
+          {% endif %}
+        {% else %}
+          <a class="btn btn-outline btn-block" href="{{ url_for('register') }}">Start for free</a>
+        {% endif %}
+      </div>
+
+      <!-- Pro Monthly -->
+      <div class="pricing-card popular reveal reveal-delay-1">
+        <div class="plan-name">Pro</div>
+        <p class="plan-desc">Unlimited predictions, billed month to month.</p>
+        <div class="price">
+          <span class="amount">₹299</span>
+          <span class="price-period">/month</span>
+        </div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>Unlimited predictions</strong></li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Higher API rate limits</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Route &amp; mode insights</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
+        </ul>
+        {% if current_user and plan_status %}
+          {% if plan_status.plan == "pro_monthly" %}
+            <button class="btn btn-primary btn-block" disabled>Your current plan</button>
+          {% else %}
+            <form method="post" action="{{ url_for('upgrade_plan') }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="plan" value="pro_monthly">
+              <button type="submit" class="btn btn-primary btn-block">Upgrade for ₹299/mo</button>
+            </form>
+          {% endif %}
+        {% else %}
+          <a class="btn btn-primary btn-block" href="{{ url_for('register') }}">Get started</a>
+        {% endif %}
+      </div>
+
+      <!-- Pro Yearly -->
+      <div class="pricing-card reveal reveal-delay-2">
+        <div class="plan-name">Pro+</div>
+        <p class="plan-desc">Unlimited predictions for a full year — best value.</p>
+        <div class="price">
+          <span class="amount">₹1,299</span>
+          <span class="price-period">/year</span>
+        </div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>Unlimited predictions</strong></li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Higher API rate limits</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Route &amp; mode insights</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
+        </ul>
+        {% if current_user and plan_status %}
+          {% if plan_status.plan == "pro_yearly" %}
+            <button class="btn btn-primary btn-block" disabled>Your current plan</button>
+          {% else %}
+            <form method="post" action="{{ url_for('upgrade_plan') }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="plan" value="pro_yearly">
+              <button type="submit" class="btn btn-primary btn-block">Upgrade for ₹1,299/yr</button>
+            </form>
+          {% endif %}
+        {% else %}
+          <a class="btn btn-primary btn-block" href="{{ url_for('register') }}">Get started</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <p class="text-center text-muted text-sm mt-8 reveal">Prices in INR. Upgrades are instant (demo billing — no card required). Pro plans auto-expire back to Free after their period.</p>
+  </div>
+</section>
+
+{% endblock %}

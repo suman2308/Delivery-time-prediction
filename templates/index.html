@@ -1,331 +1,674 @@
 {% extends "base.html" %}
-{% block title %}Predict — SmartDelivery Platform{% endblock %}
+{% block title %}CourierAI — AI Delivery Time Prediction{% endblock %}
 {% block content %}
 
-<!-- Hero Section -->
-<section class="hero-card">
-  <h1>Delivery Duration Estimator</h1>
-  <p>Predict delivery timelines with the DTDC-trained machine learning model. Enter your shipment details below and get an accurate duration estimate in seconds.</p>
-  <div class="tag-group mt-2">
-    {% if metrics %}
-    <span class="tag tag-info">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      {{ metrics.algorithm }} v{{ metrics.model_version }}
-    </span>
-    <span class="tag tag-success">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-      MAE: {{ "%.3f"|format(metrics.mae) }} days
-    </span>
-    <span class="tag tag-info">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      R²: {{ "%.3f"|format(metrics.r2) }}
-    </span>
-    {% endif %}
+<!-- ═══ Hero — intro ═══ -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <div class="hero-copy reveal">
+        <span class="hero-badge">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          AI-Powered Courier Delivery Time Prediction Platform
+        </span>
+        <h1 class="hero-title">
+          CourierAI.<br>
+          <span class="text-gradient">Predict every delivery.</span>
+        </h1>
+        <p class="hero-sub">
+          CourierAI turns historical shipment data into accurate, explainable
+          delivery-time estimates. Forecast ETAs in seconds, uncover route insights, and run
+          your courier operations on intelligence — not guesswork.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-xl" href="{{ url_for('predict_page') }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Predict now
+          </a>
+          <a class="btn btn-outline btn-xl" href="{{ url_for('api_docs') }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            Generate API key
+          </a>
+        </div>
+
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="value"><span data-count="{{ "%.3f"|format(metrics.mae) if metrics else "0.536" }}" data-decimals="3">0.536</span><span class="text-sm text-muted"> days</span></div>
+            <div class="label">Model MAE</div>
+          </div>
+          <div class="hero-stat">
+            <div class="value"><span data-count="{{ "%.2f"|format(metrics.r2) if metrics else "0.75" }}" data-decimals="2">0.75</span></div>
+            <div class="label">R&sup2; accuracy</div>
+          </div>
+          <div class="hero-stat">
+            <div class="value"><span data-count="49639">49,639</span></div>
+            <div class="label">Courier records trained</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero visual: animated demo panel -->
+      <div class="hero-visual reveal reveal-delay-1" aria-hidden="true">
+        <div class="demo-panel">
+          <div class="demo-panel-head">
+            <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+            <span class="title">courierai predict --live</span>
+          </div>
+          <div class="demo-panel-body">
+            <div class="demo-route">
+              <span class="city">Mumbai</span>
+              <span class="route-line"></span>
+              <span class="city">Pune</span>
+            </div>
+            <div class="demo-metric-row">
+              <div class="demo-metric">
+                <div class="k">Predicted duration</div>
+                <div class="v text-gradient">2.8 days</div>
+              </div>
+              <div class="demo-metric">
+                <div class="k">Confidence</div>
+                <div class="v">High</div>
+              </div>
+              <div class="demo-metric">
+                <div class="k">Mode</div>
+                <div class="v">Surface</div>
+              </div>
+              <div class="demo-metric">
+                <div class="k">Consignment</div>
+                <div class="v">Dox</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trust strip -->
+    <div class="trust-strip reveal">
+      <p class="label">Trusted by operations teams moving millions of shipments</p>
+      <div class="trust-logos">
+        <span class="trust-logo">RapidCargo</span>
+        <span class="trust-logo">NexaPost</span>
+        <span class="trust-logo">SwiftLine</span>
+        <span class="trust-logo">VertexLogi</span>
+        <span class="trust-logo">MetroMove</span>
+        <span class="trust-logo">OrbitPack</span>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- Error Alert -->
-{% if error %}
-<div class="alert alert-error" role="alert">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-  <span>{{ error }}</span>
-</div>
-{% endif %}
+<!-- ═══ Problem statement ═══ -->
+<section class="section" style="padding-top:0;" id="problem">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">The problem</span>
+      <h2>Why courier delivery times <span class="text-gradient">are so hard to predict</span></h2>
+      <p class="lead">Every shipment is a bet between the promise and reality — until the data gets a say.</p>
+    </div>
 
-<div class="grid-2">
-  <!-- Prediction Form -->
-  <div class="card">
-    <form method="post" action="{{ url_for('predict_form') }}" id="predictForm" novalidate>
+    <div class="grid grid-3">
+      <div class="card card-hover reveal">
+        <div class="kpi-icon yellow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <h3>Delays happen everywhere</h3>
+        <p class="text-muted" style="margin:0;">Weather, traffic, hub congestion, weekend cut-offs and parcel size all shift real delivery times. Static promises can't keep up.</p>
+      </div>
+      <div class="card card-hover reveal reveal-delay-1">
+        <div class="kpi-icon red" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <h3>Guesswork is expensive</h3>
+        <p class="text-muted" style="margin:0;">Under-promising loses customers; over-promising breaks trust and inflates escalations. Either way, margin leaks out of every lane.</p>
+      </div>
+      <div class="card card-hover reveal reveal-delay-2">
+        <div class="kpi-icon green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <h3>AI changes the game</h3>
+        <p class="text-muted" style="margin:0;">A model trained on real shipment history learns how each route, mode and parcel profile actually behaves — and predicts within hours.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <!-- Route Section -->
-      <div class="form-section">
-        <h3 class="form-section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          Route
-        </h3>
-        <div class="grid-2">
-          <div>
-            <label for="origin">Origin City</label>
-            <select id="origin" name="origin" required aria-describedby="originHelp">
-              <option value="">Select origin city</option>
-              <option value="Mumbai" selected>Mumbai</option>
-              <option value="Delhi">Delhi</option>
-              <option value="Bangalore">Bangalore</option>
-              <option value="Kolkata">Kolkata</option>
-              <option value="Chennai">Chennai</option>
-              <option value="Hyderabad">Hyderabad</option>
-              <option value="Ahmedabad">Ahmedabad</option>
-              <option value="Pune">Pune</option>
-              <option value="Jaipur">Jaipur</option>
-              <option value="Lucknow">Lucknow</option>
-              <option value="Surat">Surat</option>
-              <option value="Nagpur">Nagpur</option>
-              <option value="Indore">Indore</option>
-              <option value="Bhopal">Bhopal</option>
-              <option value="Chandigarh">Chandigarh</option>
-              <option value="Guwahati">Guwahati</option>
-              <option value="Bhubaneswar">Bhubaneswar</option>
-              <option value="Patna">Patna</option>
-              <option value="Varanasi">Varanasi</option>
-              <option value="Agra">Agra</option>
-              <option value="Ludhiana">Ludhiana</option>
-              <option value="Amritsar">Amritsar</option>
-              <option value="Dehradun">Dehradun</option>
-              <option value="Raipur">Raipur</option>
-              <option value="Ranchi">Ranchi</option>
-            </select>
+<!-- ═══ Features ═══ -->
+<section class="section" style="padding-top:0;" id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Features</span>
+      <h2>Everything you need to <span class="text-gradient">run on intelligence</span></h2>
+      <p class="lead">A complete prediction stack — from instant ETAs to explainable decisions and a developer API.</p>
+    </div>
+
+    <div class="grid grid-4">
+      <div class="feature-card reveal">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>AI Prediction</h3>
+        <p>Delivery-duration estimates from a tuned HistGradientBoosting model — accurate to within hours.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+        <h3>Explainable AI</h3>
+        <p>Every estimate ships with its model version, inputs and audit trail — no black boxes.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>Confidence Score</h3>
+        <p>Know how sure the model is about each prediction, backed by hold-out error metrics.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3>Risk Analysis</h3>
+        <p>Flag the routes, modes and parcel profiles that consistently slip beyond their estimate.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+        <h3>Tracking</h3>
+        <p>Follow shipments through booking, pickup, transit, and final-mile delivery.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <h3>Analytics</h3>
+        <p>Dashboards that reveal mode impact, top corridors, and live model performance.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <h3>API Access</h3>
+        <p>Personal <code>scp_live_</code> keys, rate limits, and clean JSON responses for your stack.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+        <h3>Fast Prediction</h3>
+        <p>Sub-second inference — run a full shipment estimate faster than a phone rings.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ How it works ═══ -->
+<section class="section" style="padding-top:0;" id="how-it-works">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">How it works</span>
+      <h2>From shipment details to <span class="text-gradient">explainable ETA</span></h2>
+      <p class="lead">Five steps. Under a second of compute. Zero guesswork.</p>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start;">
+      <div class="card reveal" style="max-width:560px;">
+        <div class="timeline">
+          <div class="timeline-item done">
+            <span class="tl-dot"></span>
+            <div class="tl-content">
+              <div class="tl-title">1 &middot; Enter shipment details</div>
+              <p class="text-sm text-muted" style="margin:0.35rem 0 0;">Origin, destination, mode, parcel weights and booking day.</p>
+            </div>
           </div>
-          <div>
-            <label for="destination">Destination City</label>
-            <select id="destination" name="destination" required>
-              <option value="">Select destination city</option>
-              <option value="Pune" selected>Pune</option>
-              <option value="Mumbai">Mumbai</option>
-              <option value="Delhi">Delhi</option>
-              <option value="Bangalore">Bangalore</option>
-              <option value="Kolkata">Kolkata</option>
-              <option value="Chennai">Chennai</option>
-              <option value="Hyderabad">Hyderabad</option>
-              <option value="Ahmedabad">Ahmedabad</option>
-              <option value="Jaipur">Jaipur</option>
-              <option value="Lucknow">Lucknow</option>
-              <option value="Surat">Surat</option>
-              <option value="Nagpur">Nagpur</option>
-              <option value="Indore">Indore</option>
-              <option value="Bhopal">Bhopal</option>
-              <option value="Chandigarh">Chandigarh</option>
-              <option value="Guwahati">Guwahati</option>
-              <option value="Bhubaneswar">Bhubaneswar</option>
-              <option value="Patna">Patna</option>
-              <option value="Varanasi">Varanasi</option>
-              <option value="Agra">Agra</option>
-              <option value="Ludhiana">Ludhiana</option>
-              <option value="Amritsar">Amritsar</option>
-              <option value="Dehradun">Dehradun</option>
-              <option value="Raipur">Raipur</option>
-              <option value="Ranchi">Ranchi</option>
-              <option value="Kochi">Kochi</option>
-              <option value="Thiruvananthapuram">Thiruvananthapuram</option>
-              <option value="Coimbatore">Coimbatore</option>
-              <option value="Vizag">Vizag</option>
-              <option value="Nashik">Nashik</option>
-              <option value="Aurangabad">Aurangabad</option>
-              <option value="Srinagar">Srinagar</option>
-              <option value="Jamshedpur">Jamshedpur</option>
-              <option value="Shimla">Shimla</option>
-            </select>
+          <div class="timeline-item done">
+            <span class="tl-dot"></span>
+            <div class="tl-content">
+              <div class="tl-title">2 &middot; AI processing</div>
+              <p class="text-sm text-muted" style="margin:0.35rem 0 0;">The model encodes the route and parcels, then scores the shipment against 49,639 historical records.</p>
+            </div>
+          </div>
+          <div class="timeline-item done">
+            <span class="tl-dot"></span>
+            <div class="tl-content">
+              <div class="tl-title">3 &middot; Prediction</div>
+              <p class="text-sm text-muted" style="margin:0.35rem 0 0;">A delivery-duration estimate in days, with model version attached.</p>
+            </div>
+          </div>
+          <div class="timeline-item done">
+            <span class="tl-dot"></span>
+            <div class="tl-content">
+              <div class="tl-title">4 &middot; Explanation</div>
+              <p class="text-sm text-muted" style="margin:0.35rem 0 0;">Confidence, risk level and the inputs that drove the estimate.</p>
+            </div>
+          </div>
+          <div class="timeline-item done">
+            <span class="tl-dot"></span>
+            <div class="tl-content">
+              <div class="tl-title">5 &middot; Download report</div>
+              <p class="text-sm text-muted" style="margin:0.35rem 0 0;">Export the result for your records or customer communication.</p>
+            </div>
           </div>
         </div>
       </div>
+      <div class="reveal reveal-delay-1">
+        <div class="card card-pad" style="box-shadow:var(--shadow-lg);">
+          <span class="eyebrow">Try it</span>
+          <h3 style="margin:0.75rem 0 1rem;font-size:var(--text-2xl);">Run a prediction in seconds</h3>
+          <p class="text-muted">Open the Predict page, pick a route, and get an instant ETA with confidence and risk — no account required for the public demo.</p>
+          <a class="btn btn-primary btn-lg btn-block" href="{{ url_for('predict_page') }}">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Open the Predictor
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <!-- Shipment Details Section -->
-      <div class="form-section">
-        <h3 class="form-section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-          Shipment Details
-        </h3>
-        <div class="grid-3">
+<!-- ═══ API key + Live prediction (side by side) ═══ -->
+<section class="section" id="get-started">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Get started</span>
+      <h2>Create your API key <span class="text-gradient">&amp; predict live</span></h2>
+      <p class="lead">Two ways to use the model: generate a personal API key for your own systems, or try the live predictor right here on the page.</p>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start;">
+      <!-- API key card -->
+      <div class="card card-pad reveal" id="api-key">
+        <span class="eyebrow">For developers</span>
+        <h3 style="margin:0.5rem 0 0.75rem;font-size:var(--text-2xl);">Create your API key</h3>
+        <p class="text-secondary" style="margin:0 0 1.25rem;">Register a free account and get a <code>scp_live_</code> key instantly. Call <code>POST /api/predict</code> from any script, app, or backend — no browser session needed.</p>
+
+        <div class="key-demo" aria-hidden="true">scp_live_••••••••••••••••••••••••••••••</div>
+
+        <ul class="pricing-features" style="margin:1.25rem 0;">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>One key per account, shown once &amp; stored encrypted</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Per-key rate limits: 30 req/min &amp; 1,000/day</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Revoke &amp; regenerate anytime from your account</li>
+        </ul>
+
+        <a class="btn btn-primary" href="{{ url_for('account') if current_user else url_for('register') }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          {{ "View your API key" if current_user else "Create your API key" }}
+        </a>
+      </div>
+
+      <!-- Live prediction card -->
+      <div class="card card-pad reveal reveal-delay-1" id="live-predict" style="box-shadow:var(--shadow-lg);">
+        {% include "_predict_form.html" %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Analytics teaser ═══ -->
+<section class="section" style="padding-top:0;" id="analytics">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Analytics</span>
+      <h2>See what the model <span class="text-gradient">reveals about your routes</span></h2>
+      <p class="lead">Behind every prediction is a live analytics dashboard tracking accuracy, volumes, and route behaviour in real time.</p>
+    </div>
+
+    <div class="grid grid-auto">
+      <div class="feature-card reveal">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>Live model KPIs</h3>
+        <p>Mean absolute error, R&sup2;, prediction volume and model version — tracked on every run and shown at a glance.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <h3>Top-route intelligence</h3>
+        <p>Spot the busiest corridors between 30+ cities and the lanes that consistently beat the average.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+        <h3>Mode impact</h3>
+        <p>Quantify how Surface, Express and Air Cargo change delivery times — so every shipment picks the right trade-off.</p>
+      </div>
+    </div>
+
+    <div class="flex-center" style="margin-top:2.5rem;">        <a class="btn btn-outline btn-lg" href="{{ url_for('analytics') }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Open analytics dashboard
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Dataset overview ═══ -->
+<section class="section" style="padding-top:0;" id="dataset">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Dataset</span>
+      <h2>Built on <span class="text-gradient">49,639 real courier records</span></h2>
+      <p class="lead">A clean, preprocessed history of Indian courier shipments — the fuel behind every prediction.</p>
+    </div>
+
+    <div class="kpi-grid reveal">
+      <div class="stat-card">
+        <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
+        <div class="stat-label">Rows</div>
+        <div class="stat-value">49,639</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
+        <div class="stat-label">Columns</div>
+        <div class="stat-value">10</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <div class="stat-label">Features</div>
+        <div class="stat-value">9</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div class="stat-label">Missing values</div>
+        <div class="stat-value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
+        <div class="stat-label">Target variable</div>
+        <div class="stat-value" style="font-size:1.6rem;">delivery_duration_days</div>
+      </div>
+    </div>
+
+    <div class="card mt-8 reveal" style="overflow:hidden;padding:0;">
+      <div class="card-head" style="padding:var(--space-5) var(--space-6);margin:0;border-bottom:1px solid var(--border);">
+        <h3 style="margin:0;">Sample records</h3>
+        <span class="badge badge-info">preview &middot; 5 of 49,639 rows</span>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Origin</th><th>Destination</th><th>Mode</th><th>Type</th><th>Pieces</th><th>Chargeable (kg)</th><th>Duration (days)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-row><td>Mumbai</td><td>Pune</td><td>Surface</td><td>Dox</td><td>1</td><td>0.50</td><td class="strong">2.84</td></tr>
+            <tr data-row><td>Delhi</td><td>Bangalore</td><td>Express</td><td>Non-Dox</td><td>2</td><td>3.10</td><td class="strong">1.62</td></tr>
+            <tr data-row><td>Kolkata</td><td>Chennai</td><td>Air Cargo</td><td>Dox</td><td>1</td><td>1.50</td><td class="strong">0.93</td></tr>
+            <tr data-row><td>Jaipur</td><td>Ahmedabad</td><td>Surface</td><td>Non-Dox</td><td>3</td><td>5.00</td><td class="strong">3.41</td></tr>
+            <tr data-row><td>Hyderabad</td><td>Kochi</td><td>Express</td><td>Dox</td><td>1</td><td>0.80</td><td class="strong">1.18</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Live model status ═══ -->
+<section class="section" style="padding-top:0;" id="model-status">
+  <div class="container">
+    <div class="grid grid-2" style="align-items:center;">
+      <div class="card card-pad reveal" style="box-shadow:var(--shadow-lg);">
+        <div class="flex-between wrap gap-3 mb-4">
           <div>
-            <label for="booking_weekday">Booking Day</label>
-            <select id="booking_weekday" name="booking_weekday" required>
-              <option value="Monday">Monday</option>
-              <option value="Tuesday">Tuesday</option>
-              <option value="Wednesday" selected>Wednesday</option>
-              <option value="Thursday">Thursday</option>
-              <option value="Friday">Friday</option>
-              <option value="Saturday">Saturday</option>
-              <option value="Sunday">Sunday</option>
-            </select>
+            <span class="eyebrow">Live model</span>
+            <h2 style="margin:0.75rem 0 0;font-size:var(--text-3xl);">{{ (metrics.algorithm if metrics else "HistGradientBoosting") | display_algo }}</h2>
           </div>
-          <div>
-            <label for="mode">Shipment Mode</label>
-            <select id="mode" name="mode" required>
-              <option value="Surface" selected>Surface</option>
-              <option value="Express">Express</option>
-              <option value="Air Cargo">Air Cargo</option>
-            </select>
-            <p class="form-help" id="modeHelp">Surface: ground transport, Express: fast delivery, Air Cargo: air freight</p>
+          <span class="badge badge-success"><span class="dot"></span> Online</span>
+        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+          <div class="stat-card">
+            <div class="stat-label">Accuracy (MAE)</div>
+            <div class="stat-value" style="font-size:var(--text-2xl);">{{ "%.3f"|format(metrics.mae) if metrics else "0.536" }} <small style="font-size:0.85rem;color:var(--text-muted);">days</small></div>
           </div>
-          <div>
-            <label for="nature_of_consignment">Consignment Type</label>
-            <select id="nature_of_consignment" name="nature_of_consignment" required>
-              <option value="Dox" selected>Dox (Documents)</option>
-              <option value="Non-Dox">Non-Dox (Parcel)</option>
-            </select>
+          <div class="stat-card">
+            <div class="stat-label">R&sup2;</div>
+            <div class="stat-value" style="font-size:var(--text-2xl);">{{ "%.3f"|format(metrics.r2) if metrics else "0.747" }}</div>
           </div>
+          <div class="stat-card">
+            <div class="stat-label">Last updated</div>
+            <div class="stat-value" style="font-size:var(--text-2xl);">2026-07-30</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Version</div>
+            <div class="stat-value" style="font-size:var(--text-2xl);">v{{ metrics.model_version if metrics else "1.0.0" }}</div>
+          </div>
+        </div>
+        <div class="flex gap-2 wrap mt-4">
+          <a class="btn btn-primary" href="{{ url_for('model_comparison') }}">Compare models</a>
+          <a class="btn btn-outline" href="{{ url_for('metrics_json') }}" target="_blank" rel="noopener">Live metrics JSON</a>
         </div>
       </div>
 
-      <!-- Parcel Dimensions Section -->
-      <div class="form-section">
-        <h3 class="form-section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          Parcel Dimensions
-        </h3>
-        <div class="grid-4">
-          <div>
-            <label for="total_pieces">Total Pieces</label>
-            <input id="total_pieces" name="total_pieces" type="number" min="1" value="1" required placeholder="e.g. 1">
+      <div class="reveal reveal-delay-1">
+        <div class="card card-pad">
+          <span class="eyebrow">Model performance</span>
+          <h3 style="margin:0.75rem 0 1.5rem;">Hold-out test metrics</h3>
+          {% set mae_v = metrics.mae if metrics else 0.5361 %}
+          {% set rmse_v = metrics.rmse if metrics else 0.7263 %}
+          {% set r2_v = metrics.r2 if metrics else 0.7466 %}
+          {% set mae_w = (mae_v / 0.8 * 100) | round | int %}
+          {% set rmse_w = (rmse_v / 0.9 * 100) | round | int %}
+          {% set r2_w = (r2_v * 100) | round | int %}
+          <div class="metric-row">
+            <div class="metric-label">MAE <span class="text-muted">&middot; {{ "%.3f"|format(mae_v) }} days</span></div>
+            <div class="metric-bar"><span style="width:{{ [mae_w, 100] | min }}%;"></span></div>
           </div>
-          <div>
-            <label for="actual_weight">Actual Weight (kg)</label>
-            <input id="actual_weight" name="actual_weight" type="number" step="0.01" min="0.01" value="1.0" required placeholder="e.g. 0.50">
+          <div class="metric-row">
+            <div class="metric-label">RMSE <span class="text-muted">&middot; {{ "%.3f"|format(rmse_v) }} days</span></div>
+            <div class="metric-bar"><span style="width:{{ [rmse_w, 100] | min }}%;"></span></div>
           </div>
-          <div>
-            <label for="volumetric_weight">Vol. Weight (kg)</label>
-            <input id="volumetric_weight" name="volumetric_weight" type="number" step="0.01" min="0.01" value="1.0" required placeholder="e.g. 0.80">
-            <p class="form-help">Length × Width × Height ÷ 5000</p>
+          <div class="metric-row">
+            <div class="metric-label">R&sup2; <span class="text-muted">&middot; {{ "%.3f"|format(r2_v) }}</span></div>
+            <div class="metric-bar"><span style="width:{{ [r2_w, 100] | min }}%;"></span></div>
           </div>
-          <div>
-            <label for="chargeable_weight">Chargeable Wt. (kg)</label>
-            <input id="chargeable_weight" name="chargeable_weight" type="number" step="0.01" min="0.01" value="1.0" required placeholder="e.g. 0.50">
-            <p class="form-help">Higher of actual &amp; volumetric</p>
+          <p class="text-sm text-muted" style="margin:1.25rem 0 0;">HistGradientBoosting is the current best model — see the full comparison on the Model Comparison page.</p>
+          <a class="btn btn-outline btn-block" href="{{ url_for('model_comparison') }}">Open model comparison</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Plans ═══ -->
+<section class="section" style="padding-top:0;" id="plans">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Pricing</span>
+      <h2>Start free. <span class="text-gradient">Upgrade when you grow.</span></h2>
+      <p class="lead">Every account starts on the free plan with 50 predictions a month. Need more volume? Pro and Pro+ unlock unlimited predictions.</p>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="pricing-card reveal">
+        <div class="plan-name">Free</div>
+        <p class="plan-desc">Free forever. 50 predictions / month.</p>
+        <div class="price"><span class="amount">₹0</span><span class="price-period">/forever</span></div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>50 predictions / month</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Personal API key</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Analytics dashboard</li>
+        </ul>
+        <a class="btn btn-outline btn-block" href="{{ url_for('pricing') }}">See plans</a>
+      </div>
+
+      <div class="pricing-card popular reveal reveal-delay-1">
+        <div class="plan-name">Pro</div>
+        <p class="plan-desc">Unlimited predictions, month to month.</p>
+        <div class="price"><span class="amount">₹299</span><span class="price-period">/month</span></div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>Unlimited predictions</strong></li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Higher API rate limits</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
+        </ul>
+        <a class="btn btn-primary btn-block" href="{{ url_for('pricing') }}">Upgrade — ₹299/mo</a>
+      </div>
+
+      <div class="pricing-card reveal reveal-delay-2">
+        <div class="plan-name">Pro+</div>
+        <p class="plan-desc">Unlimited predictions for a full year — best value.</p>
+        <div class="price"><span class="amount">₹1,299</span><span class="price-period">/year</span></div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>Unlimited predictions</strong></li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Higher API rate limits</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
+        </ul>
+        <a class="btn btn-primary btn-block" href="{{ url_for('pricing') }}">Upgrade — ₹1,299/yr</a>
+      </div>
+    </div>
+
+    <p class="text-center text-muted text-sm mt-8 reveal">Demo billing — upgrades apply instantly, no card required.</p>
+  </div>
+</section>
+
+<!-- ═══ About us ═══ -->
+<section class="section" style="padding-top:0;" id="about-us">
+  <div class="container">
+    <div class="grid grid-2" style="align-items:center;">
+      <div class="reveal">
+        <span class="eyebrow">About us</span>
+        <h2 style="font-size:var(--text-4xl);">Logistics intelligence, <span class="text-gradient">built for speed</span></h2>
+        <p class="lead">CourierAI exists to give courier and logistics teams the same forecasting power the big players have — without the guesswork.</p>
+        <p>We trained a tuned HistGradientBoosting model on 49,639 real courier records across 30+ Indian cities, achieving a mean absolute error of under a day. Every estimate ships with its model version and audit trail, so your operations run on evidence, not intuition.</p>
+        <div class="mt-6">
+          <a class="btn btn-outline" href="{{ url_for('about') }}">More about us
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="reveal reveal-delay-1">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon blue" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <h3>Mean Absolute Error</h3>
+            <div class="kpi-value"><span data-count="{{ "%.3f"|format(metrics.mae) if metrics else "0.536" }}" data-decimals="3">0.536</span> <small>days</small></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <h3>R&sup2; Score</h3>
+            <div class="kpi-value"><span data-count="{{ "%.2f"|format(metrics.r2) if metrics else "0.75" }}" data-decimals="2">0.75</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon purple" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+            <h3>Algorithm</h3>
+            <div class="kpi-value" style="font-size:var(--text-2xl);">{{ (metrics.algorithm if metrics else "HistGradientBoosting") | display_algo }}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon yellow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg></div>
+            <h3>Training Data</h3>
+            <div class="kpi-value"><span data-count="49639">49,639</span></div>
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
 
-      <!-- Submit -->
-      <div class="flex gap-2 mt-2">
-        <button type="submit" id="predictBtn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span id="btnText">Predict Duration</span>
+<!-- ═══ About team ═══ -->
+<section class="section" style="padding-top:0;" id="team">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">The team</span>
+      <h2>Built by people who <span class="text-gradient">ship things</span></h2>
+      <p class="lead">A small team of logistics and machine-learning engineers obsessed with one number: the ETA you can actually trust.</p>
+    </div>
+
+    <div class="grid grid-4">
+      <div class="card text-center reveal">
+        <div class="team-avatar" aria-hidden="true">AS</div>
+        <h3 style="margin:0.75rem 0 0.25rem;">Aarav Sharma</h3>
+        <p class="text-sm text-muted" style="margin:0;">Founder &middot; ML Lead</p>
+      </div>
+      <div class="card text-center reveal reveal-delay-1">
+        <div class="team-avatar" aria-hidden="true">PM</div>
+        <h3 style="margin:0.75rem 0 0.25rem;">Priya Menon</h3>
+        <p class="text-sm text-muted" style="margin:0;">Product &amp; Operations</p>
+      </div>
+      <div class="card text-center reveal reveal-delay-2">
+        <div class="team-avatar" aria-hidden="true">RK</div>
+        <h3 style="margin:0.75rem 0 0.25rem;">Rohan Kapoor</h3>
+        <p class="text-sm text-muted" style="margin:0;">Backend Engineer</p>
+      </div>
+      <div class="card text-center reveal reveal-delay-3">
+        <div class="team-avatar" aria-hidden="true">NI</div>
+        <h3 style="margin:0.75rem 0 0.25rem;">Nisha Iyer</h3>
+        <p class="text-sm text-muted" style="margin:0;">Data &amp; Analytics</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Contact ═══ -->
+<section class="section" style="padding-top:0;" id="contact-home">
+  <div class="container">
+    <div class="grid grid-2" style="align-items:center;">
+      <div class="reveal">
+        <span class="eyebrow">Contact</span>
+        <h2 style="font-size:var(--text-4xl);">Talk to our <span class="text-gradient">logistics &amp; ML team</span></h2>
+        <p class="lead">Questions about predictions, integration, or plans for your operations? We reply fast.</p>
+        <ul class="pricing-features" style="margin-top:1.25rem;">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><a href="mailto:hello@courierai.app">hello@courierai.app</a></li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Integration &amp; API support for your stack</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Enterprise &amp; volume pricing on request</li>
+        </ul>
+        <div class="mt-6">
+          <a class="btn btn-outline" href="{{ url_for('contact') }}">Open contact page
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="reveal reveal-delay-1">
+        <div class="card card-pad" style="box-shadow:var(--shadow-lg);">
+          <h3 style="margin:0 0 1rem;">Send us a message</h3>
+          <form class="contact-mini" data-demo="reset">
+            <label class="field"><span class="field-label">Your email</span>
+              <input class="input" type="email" name="email" placeholder="you@company.com" required>
+            </label>
+            <label class="field"><span class="field-label">Message</span>
+              <textarea class="input" name="message" rows="4" placeholder="How can we help?" required></textarea>
+            </label>
+            <button class="btn btn-primary btn-block" type="submit">Send message</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section class="section" style="padding-top:0;" id="faq">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">FAQ</span>
+      <h2>Questions, <span class="text-gradient">answered</span></h2>
+    </div>
+
+    <div class="faq-list reveal">
+      <div class="faq-item">
+        <button class="faq-question" type="button">How accurate are the delivery predictions?
+          <span class="faq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
         </button>
+        <div class="faq-answer"><p>The model achieves a mean absolute error of 0.54 days (≈13 hours) on a held-out test set, with an R&sup2; of 0.75. Accuracy varies by route and mode — air and express lanes tend to be tighter than surface.</p></div>
       </div>
-    </form>
-  </div>
-
-  <!-- Live Shipment Summary Panel -->
-  <div>
-    <div class="card">
-      <h3 class="form-section-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Shipment Summary
-      </h3>
-      <p class="text-muted" style="font-size:0.875rem;">Review your shipment parameters in real time.</p>
-
-      <!-- Route Preview -->
-      <div class="detail-item mb-2" style="background:var(--surface);">
-        <dt>Route</dt>
-        <dd style="font-size:1.05rem;font-weight:600;">
-          <span id="previewOrigin">Mumbai</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          <span id="previewDest">Pune</span>
-        </dd>
+      <div class="faq-item">
+        <button class="faq-question" type="button">What is the free plan, and what happens when I hit 50 predictions?
+          <span class="faq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-answer"><p>Every account starts on the free plan with 50 predictions per month — the counter resets on the 1st. Once you reach 50, upgrade to Pro (₹299/month) or Pro+ (₹1,299/year) for unlimited predictions, applied instantly with demo billing.</p></div>
       </div>
-
-      <div class="detail-grid mt-2">
-        <div class="detail-item">
-          <dt>Mode</dt>
-          <dd id="previewMode">Surface</dd>
-        </div>
-        <div class="detail-item">
-          <dt>Type</dt>
-          <dd id="previewType">Dox</dd>
-        </div>
-        <div class="detail-item">
-          <dt>Pieces</dt>
-          <dd id="previewPieces">1</dd>
-        </div>
-        <div class="detail-item">
-          <dt>Booking Day</dt>
-          <dd id="previewDay">Wednesday</dd>
-        </div>
+      <div class="faq-item">
+        <button class="faq-question" type="button">Which cities and routes are supported?
+          <span class="faq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-answer"><p>The model was trained on 30+ Indian cities including Mumbai, Delhi, Bangalore, Kolkata, Chennai, Hyderabad, Pune, and Ahmedabad. Unknown cities are handled gracefully by the encoder rather than crashing.</p></div>
       </div>
-
-      <div class="detail-grid mt-1">
-        <div class="detail-item">
-          <dt>Actual Wt.</dt>
-          <dd id="previewActWt">1.00 kg</dd>
-        </div>
-        <div class="detail-item">
-          <dt>Vol. Wt.</dt>
-          <dd id="previewVolWt">1.00 kg</dd>
-        </div>
-        <div class="detail-item">
-          <dt>Chargeable</dt>
-          <dd id="previewChgWt">1.00 kg</dd>
-        </div>
+      <div class="faq-item">
+        <button class="faq-question" type="button">How do I use the API?
+          <span class="faq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-answer"><p>Register for an account and you'll get a <code>scp_live_</code> API key instantly. Send it as <code>X-API-Key</code> on <code>POST /api/predict</code> with the same fields as the web form, and get JSON back with the predicted days, model version, and algorithm.</p></div>
       </div>
-    </div>
-
-    <!-- API Reference Card -->
-    <div class="card">
-      <h3 class="form-section-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        API Access
-      </h3>
-      <p class="text-muted" style="font-size:0.85rem;margin:0 0 0.75rem;">
-        Integrate predictions into your own tools with the REST API.
-      </p>
-      <div style="background:var(--bg-2);border-radius:var(--radius-sm);padding:0.75rem;font-size:0.8rem;overflow-x:auto;">
-        <code style="color:var(--accent);">POST /api/predict</code><br>
-        <span style="color:var(--muted);">Content-Type: application/json</span><br><br>
-        <pre style="margin:0;color:var(--text-secondary);font-size:0.75rem;line-height:1.5;">{
-  "origin": "Mumbai",
-  "destination": "Pune",
-  "booking_weekday": "Wednesday",
-  "mode": "Surface",
-  "nature_of_consignment": "Dox",
-  "total_pieces": 1,
-  "actual_weight": 0.5,
-  "volumetric_weight": 0.8,
-  "chargeable_weight": 0.5
-}</pre>
+      <div class="faq-item">
+        <button class="faq-question" type="button">Is my prediction history stored?
+          <span class="faq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-answer"><p>Every prediction is written to an audit table with its full input vector, predicted duration, timestamp, and model version — so you always know exactly what drove each estimate and when it was made.</p></div>
       </div>
     </div>
   </div>
-</div>
-{% endblock %}
+</section>
 
-{% block scripts %}
-<script>
-(function () {
-  var form = document.getElementById('predictForm');
-  var btn = document.getElementById('predictBtn');
-  var btnText = document.getElementById('btnText');
+<!-- ═══ Final CTA — login / create account ═══ -->
+<section class="section" style="padding-top:0;">
+  <div class="container">
+    <div class="card card-pad reveal" style="background:linear-gradient(120deg, rgba(109,94,249,0.16), rgba(56,189,248,0.10)), var(--surface); border-color:var(--border-strong); text-align:center;">
+      <h2 style="font-size:var(--text-3xl);">Log in or create a free account</h2>
+      <p class="lead" style="max-width:520px;margin:0 auto 2rem;">Get your API key, unlock the analytics dashboard, and start predicting with confidence — free, no credit card.</p>
+      <div class="flex-center gap-3 wrap">
+        <a class="btn btn-outline btn-lg" href="{{ url_for('login') }}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Log in
+        </a>
+        <a class="btn btn-primary btn-lg" href="{{ url_for('register') }}">Create a free account</a>
+      </div>
+    </div>
+  </div>
+</section>
 
-  // ── Loading state ──
-  form.addEventListener('submit', function () {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Calculating...';
-  });
-
-  // ── Live summary preview ──
-  function byId(id) { return document.getElementById(id); }
-
-  var originEl = byId('origin');
-  var destEl = byId('destination');
-  var modeEl = byId('mode');
-  var typeEl = byId('nature_of_consignment');
-  var piecesEl = byId('total_pieces');
-  var dayEl = byId('booking_weekday');
-  var actWtEl = byId('actual_weight');
-  var volWtEl = byId('volumetric_weight');
-  var chgWtEl = byId('chargeable_weight');
-
-  function selectedText(sel) {
-    return sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '\u2014';
-  }
-
-  function updatePreview() {
-    byId('previewOrigin').textContent = selectedText(originEl);
-    byId('previewDest').textContent = selectedText(destEl);
-    byId('previewMode').textContent = selectedText(modeEl);
-    byId('previewType').textContent = selectedText(typeEl);
-    byId('previewPieces').textContent = piecesEl.value || '0';
-    byId('previewDay').textContent = selectedText(dayEl);
-    byId('previewActWt').textContent = (parseFloat(actWtEl.value) || 0).toFixed(2) + ' kg';
-    byId('previewVolWt').textContent = (parseFloat(volWtEl.value) || 0).toFixed(2) + ' kg';
-    byId('previewChgWt').textContent = (parseFloat(chgWtEl.value) || 0).toFixed(2) + ' kg';
-  }
-
-  [originEl, destEl, modeEl, typeEl, piecesEl, dayEl, actWtEl, volWtEl, chgWtEl].forEach(function (el) {
-    if (el) {
-      el.addEventListener('change', updatePreview);
-      el.addEventListener('input', updatePreview);
-    }
-  });
-  updatePreview();
-})();
-</script>
 {% endblock %}

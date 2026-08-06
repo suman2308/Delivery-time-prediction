@@ -11,31 +11,22 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 
 import config
 import database as db
 
-# Apply modern dark theme aesthetics to Matplotlib
+# Apply modern dark theme aesthetics to Matplotlib — matches the design system
+# tokens (bg #070b14, surfaces rgba white 0.04, brand gradient #6d5ef9 → #38bdf8).
 plt.style.use("dark_background")
-PLT_BG = "#111827"
-PLT_CARD = "#1f2937"
-PLT_TEXT = "#f3f4f6"
-PLT_ACCENT = "#38bdf8"
-PLT_GRID = "#374151"
+PLT_BG = "#0b1120"
+PLT_CARD = "#131c33"
+PLT_TEXT = "#eef2f9"
+PLT_ACCENT = "#6d5ef9"
+PLT_GRID = "#1f2b44"
 
 
 def ensure_plots_dir() -> None:
     os.makedirs(config.PLOTS_DIR, exist_ok=True)
-
-
-def _rows_to_df(rows: list) -> pd.DataFrame:
-    """Convert SQLite Row list to DataFrame for charting."""
-    if not rows:
-        return pd.DataFrame()
-    data = [{k: r[k] for k in r.keys()} for r in rows]
-    return pd.DataFrame(data)
 
 
 def _cache_valid(path: str) -> bool:
@@ -58,12 +49,12 @@ def plot_mode_impact() -> str:
     if not rows:
         _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
-    df = _rows_to_df(rows)
+    df = db.rows_to_dataframe(rows)
     grouped = df.groupby("mode")["predicted_days"].mean().sort_values(ascending=False)
 
     fig, ax = plt.subplots(figsize=(6, 4.2), facecolor=PLT_BG)
     ax.set_facecolor(PLT_CARD)
-    colors_list = ["#38bdf8", "#818cf8", "#34d399"][:len(grouped)]
+    colors_list = ["#6d5ef9", "#38bdf8", "#34d399"][:len(grouped)]
     bars = ax.bar(
         grouped.index.astype(str), grouped.values,
         color=colors_list, width=0.55, edgecolor="none",
@@ -100,14 +91,14 @@ def plot_prediction_distribution() -> str:
     if not rows:
         _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
-    df = _rows_to_df(rows)
+    df = db.rows_to_dataframe(rows)
     values = df["predicted_days"].values
 
     fig, ax = plt.subplots(figsize=(6, 4.2), facecolor=PLT_BG)
     ax.set_facecolor(PLT_CARD)
     ax.hist(values, bins=30, color=PLT_ACCENT, edgecolor="none", alpha=0.8)
     ax.axvline(
-        values.mean(), color="#fbbf24", linestyle="--", linewidth=1.5,
+        values.mean(), color="#38bdf8", linestyle="--", linewidth=1.5,
         label=f"Mean: {values.mean():.2f}d",
     )
     ax.set_xlabel("Predicted Days", color=PLT_TEXT, fontsize=10)
@@ -134,7 +125,7 @@ def plot_top_routes() -> str:
     if not rows:
         _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
-    df = _rows_to_df(rows)
+    df = db.rows_to_dataframe(rows)
     route_counts = (
         df.groupby(["origin", "destination"])
         .size()
@@ -146,7 +137,7 @@ def plot_top_routes() -> str:
     fig, ax = plt.subplots(figsize=(6.5, 4.2), facecolor=PLT_BG)
     ax.set_facecolor(PLT_CARD)
     y_pos = range(len(labels))
-    ax.barh(y_pos, route_counts.values, color="#818cf8", edgecolor="none", height=0.6)
+    ax.barh(y_pos, route_counts.values, color="#38bdf8", edgecolor="none", height=0.6)
     ax.set_yticks(list(y_pos))
     ax.set_yticklabels(labels, fontsize=8, color=PLT_TEXT)
     ax.set_xlabel("Prediction Count", color=PLT_TEXT, fontsize=10)

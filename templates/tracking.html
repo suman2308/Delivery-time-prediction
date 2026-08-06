@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Shipment Tracking — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:var(--space-10);">
+      <span class="eyebrow">Tracking</span>
+      <h1 style="font-size:var(--text-5xl);">Track a shipment <span class="text-gradient">in real time</span></h1>
+      <p class="lead">Enter a tracking ID to follow a consignment through its journey — from booking to final-mile delivery.</p>
+    </div>
+
+    <div class="reveal" style="max-width:640px;margin:0 auto;">
+      <form id="trackingForm" class="card card-pad">
+        <div class="input-group">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          <input id="trackingId" type="text" class="input" placeholder="e.g. SCP-2026-48213" aria-label="Tracking ID" style="padding:0.8rem 1rem 0.8rem 2.8rem;" required>
+        </div>
+        <div class="flex-center gap-2 mt-4">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Track shipment
+          </button>
+        </div>
+        <p class="text-xs text-muted text-center" style="margin:0.75rem 0 0;">Try any ID — this is an interactive preview.</p>
+        <div class="flex-center wrap gap-2 mt-4">
+          <span class="text-sm text-muted">Try:</span>
+          <button type="button" class="badge badge-info demo-chip" data-chip="CAI-2026-48213">CAI-2026-48213</button>
+          <button type="button" class="badge badge-info demo-chip" data-chip="CAI-2026-77304">CAI-2026-77304</button>
+          <button type="button" class="badge badge-info demo-chip" data-chip="CAI-2026-19028">CAI-2026-19028</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Recent tracking strip -->
+    <div class="card mt-8 reveal" style="max-width:640px;margin-left:auto;margin-right:auto;">
+      <h3 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Recent shipments
+      </h3>
+      <div class="table-wrap">
+        <table class="table table-sm">
+          <thead><tr><th>Tracking ID</th><th>Route</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr data-row><td class="strong mono">CAI-2026-48213</td><td>Mumbai &rarr; Pune</td><td><span class="badge badge-primary"><span class="dot"></span> In Transit</span></td></tr>
+            <tr data-row><td class="strong mono">CAI-2026-77304</td><td>Delhi &rarr; Bangalore</td><td><span class="badge badge-success"><span class="dot"></span> Delivered</span></td></tr>
+            <tr data-row><td class="strong mono">CAI-2026-19028</td><td>Kolkata &rarr; Chennai</td><td><span class="badge badge-warning"><span class="dot"></span> Out for Delivery</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="trackingResult" aria-live="polite"></div>
+  </div>
+</section>
+
+{% endblock %}

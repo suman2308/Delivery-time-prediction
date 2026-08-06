@@ -45,6 +45,7 @@ COPY dtdc_model.py      ./
 COPY charts.py          ./
 COPY ml_model.py        ./
 COPY seed_data.py       ./
+COPY train_experiments.py ./
 COPY app.py             ./
 
 COPY data/              ./data/

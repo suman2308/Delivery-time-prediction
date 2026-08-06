@@ -1,97 +1,263 @@
 {% extends "base.html" %}
-{% block title %}Database — SmartDelivery Platform{% endblock %}
+{% block title %}Data Explorer — CourierAI{% endblock %}
 {% block content %}
 
-<section class="hero-card">
-  <h1>Order History Explorer</h1>
-  <p>Browse and filter historical delivery orders stored in the database.</p>
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="flex-between wrap gap-4 mb-6 reveal">
+      <div>
+        <span class="eyebrow">Operations</span>
+        <h1 style="margin:0.75rem 0 0.5rem;font-size:var(--text-4xl);">Order History Explorer</h1>
+        <p class="text-muted" style="margin:0;">Browse and filter historical delivery orders stored in the platform database.</p>
+      </div>
+      <span class="badge badge-info"><span class="dot"></span> {{ rows|length }} records shown</span>
+    </div>
+
+    <!-- Demo mode -->
+    <div class="card mb-6 reveal">
+      <div class="flex-between wrap gap-3">
+        <div class="flex gap-3 items-center">
+          <div class="feature-icon" aria-hidden="true" style="margin:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
+          <div>
+            <h3 style="margin:0 0 0.25rem;">Demo mode</h3>
+            <p class="text-sm text-muted" style="margin:0;">
+              {% if demo_mode %}
+              Active — sample predictions are populating dashboards, analytics and charts.
+              {% else %}
+              Load sample prediction data instantly so dashboards, analytics and charts come alive.
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="flex gap-2 wrap">
+          {% if demo_mode %}
+          <span class="badge badge-success"><span class="dot"></span> Demo active</span>
+          <form method="post" action="{{ url_for('admin_demo') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="mode" value="off">
+            <button type="submit" class="btn btn-outline btn-sm">Turn off demo</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('admin_demo') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              Load demo data
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Experiment lab -->
+    <div class="card mb-6 reveal">
+      <div class="flex-between wrap gap-3">
+        <div class="flex gap-3 items-center">
+          <div class="feature-icon" aria-hidden="true" style="margin:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+          <div>
+            <h3 style="margin:0 0 0.25rem;">Experiment lab</h3>
+            <p class="text-sm text-muted" style="margin:0;">Benchmark 5 base models, voting/stacking hybrids and stacking combinations (regression + classification) on the DTDC dataset. Results feed the Model Comparison page.</p>
+          </div>
+        </div>
+        <form method="post" action="{{ url_for('admin_run_experiments') }}" class="flex gap-2 wrap" style="align-items:center;">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <select name="scope" class="select" id="expScope" aria-label="Experiment scope" style="width:auto;">
+            <option value="smoke">Smoke (600 rows, ~30s)</option>
+            <option value="quick">Quick (5,000 rows, ~2 min)</option>
+            <option value="reduced">Reduced (full data, 6 stack combos)</option>
+            <option value="full">Full (full data, 17 stack combos)</option>
+          </select>
+          <button type="submit" class="btn btn-primary btn-sm" id="expRunBtn">Run experiment</button>
+        </form>
+      </div>
+      <div class="exp-status mt-4" id="expStatus" style="display:none;">
+        <div class="skeleton skeleton-line" style="width:70%;"></div>
+        <div class="skeleton skeleton-line" style="width:40%;"></div>
+      </div>
+      <p class="text-sm text-muted mt-3" style="margin-bottom:0;">
+        Progress is polled live. When finished, results appear on the <a href="{{ url_for('model_comparison') }}">Model Comparison</a> page.
+        Scope table: <code>smoke</code> &middot; <code>quick</code> &middot; <code>reduced</code> &middot; <code>full</code>.
+      </p>
+    </div>
+
+    <!-- Filter card -->
+    <div class="card mb-6 reveal">
+      <h3 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 22 7 18 7 18 21 16 21 16 7 10 7 10 21 8 21 8 7 2 7 2 3 22 3"/></svg>
+        Filter Records
+      </h3>
+      <form method="get">
+        <div class="form-row" style="grid-template-columns:repeat(4,1fr);">
+          <div class="field">
+            <label class="field-label" for="traffic">Traffic Level</label>
+            <select id="traffic" name="traffic" class="select">
+              <option value="">All Levels</option>
+              <option value="Low" {% if traffic == 'Low' %}selected{% endif %}>Low</option>
+              <option value="Medium" {% if traffic == 'Medium' %}selected{% endif %}>Medium</option>
+              <option value="High" {% if traffic == 'High' %}selected{% endif %}>High</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="weather">Weather</label>
+            <select id="weather" name="weather" class="select">
+              <option value="">All Weather</option>
+              <option value="Clear" {% if weather == 'Clear' %}selected{% endif %}>Clear</option>
+              <option value="Rainy" {% if weather == 'Rainy' %}selected{% endif %}>Rainy</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="min_distance">Min Distance (km)</label>
+            <input id="min_distance" name="min_distance" type="number" step="0.1" value="{{ min_distance }}" class="input" placeholder="Any">
+          </div>
+          <div class="field">
+            <label class="field-label" for="max_distance">Max Distance (km)</label>
+            <input id="max_distance" name="max_distance" type="number" step="0.1" value="{{ max_distance }}" class="input" placeholder="Any">
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 22 7 18 7 18 21 16 21 16 7 10 7 10 21 8 21 8 7 2 7 2 3 22 3"/></svg>
+            Apply Filters
+          </button>
+          <a class="btn btn-outline" href="{{ url_for('admin') }}">Reset</a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Table card -->
+    <div class="card reveal">
+      <div class="card-head">
+        <h3>Order Records</h3>
+        <div class="input-group" style="width:240px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="tableSearch" type="search" class="input" placeholder="Search records…" aria-label="Search records">
+        </div>
+      </div>
+
+      {% if not rows %}
+      <div class="empty-state">
+        <div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <h3>No records found</h3>
+        <p>No orders match the current filter criteria. Run predictions to populate the database, or reset the filters.</p>
+        <a class="btn btn-outline" href="{{ url_for('admin') }}">Reset filters</a>
+      </div>
+      {% else %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Distance</th>
+              <th>Departure</th>
+              <th>Traffic</th>
+              <th>Weather</th>
+              <th>Actual Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr data-row>
+              <td class="strong mono">#{{ r['order_id'] }}</td>
+              <td>{{ r['distance'] }} km</td>
+              <td>{{ r['order_time'] }}:00</td>
+              <td>
+                <span class="badge {% if r['traffic_level'] == 'High' %}badge-danger{% elif r['traffic_level'] == 'Medium' %}badge-warning{% else %}badge-success{% endif %}">{{ r['traffic_level'] }}</span>
+              </td>
+              <td><span class="badge {% if r['weather'] == 'Rainy' %}badge-info{% else %}badge-primary{% endif %}">{{ r['weather'] }}</span></td>
+              <td class="strong">{{ r['delivery_time'] }} <span class="text-muted">mins</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </div>
 </section>
 
-<div class="card">
-  <h3 class="form-section-title">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 22 7 18 7 18 21 16 21 16 7 10 7 10 21 8 21 8 7 2 7 2 3 22 3"/></svg>
-    Filter Records
-  </h3>
-  <form method="get">
-    <div class="grid-4">
-      <div>
-        <label for="traffic">Traffic Level</label>
-        <select id="traffic" name="traffic">
-          <option value="">All Levels</option>
-          <option value="Low" {% if traffic == 'Low' %}selected{% endif %}>Low</option>
-          <option value="Medium" {% if traffic == 'Medium' %}selected{% endif %}>Medium</option>
-          <option value="High" {% if traffic == 'High' %}selected{% endif %}>High</option>
-        </select>
-      </div>
-      <div>
-        <label for="weather">Weather</label>
-        <select id="weather" name="weather">
-          <option value="">All Weather</option>
-          <option value="Clear" {% if weather == 'Clear' %}selected{% endif %}>Clear</option>
-          <option value="Rainy" {% if weather == 'Rainy' %}selected{% endif %}>Rainy</option>
-        </select>
-      </div>
-      <div>
-        <label for="min_distance">Min Distance (km)</label>
-        <input id="min_distance" name="min_distance" type="number" step="0.1" value="{{ min_distance }}" placeholder="Any">
-      </div>
-      <div>
-        <label for="max_distance">Max Distance (km)</label>
-        <input id="max_distance" name="max_distance" type="number" step="0.1" value="{{ max_distance }}" placeholder="Any">
-      </div>
-    </div>
-    <div class="flex gap-2 mt-2">
-      <button type="submit">Apply Filters</button>
-      <a class="btn btn-secondary" href="{{ url_for('admin') }}">Reset</a>
-    </div>
-  </form>
-</div>
+{% endblock %}
 
-<div class="card">
-  <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:1rem;">
-    <h3 class="form-section-title" style="margin:0;border:none;padding:0;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      Order Records
-    </h3>
-    <span class="tag tag-info">{{ rows|length }} records</span>
-  </div>
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+  var statusBox = document.getElementById("expStatus");
+  var runBtn = document.getElementById("expRunBtn");
+  if (!statusBox) return;
 
-  {% if not rows %}
-  <div style="text-align:center;padding:2.5rem 1rem;">
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;margin:0 auto 0.75rem;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-    <p class="text-muted" style="margin:0;">No records found. Submit predictions to populate the database.</p>
-  </div>
-  {% else %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Distance</th>
-          <th>Departure</th>
-          <th>Traffic</th>
-          <th>Weather</th>
-          <th>Actual Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in rows %}
-        <tr>
-          <td><strong>#{{ r['order_id'] }}</strong></td>
-          <td>{{ r['distance'] }} km</td>
-          <td>{{ r['order_time'] }}:00</td>
-          <td><span class="tag">{{ r['traffic_level'] }}</span></td>
-          <td><span class="tag">{{ r['weather'] }}</span></td>
-          <td><strong style="color:var(--accent);">{{ r['delivery_time'] }} mins</strong></td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="6" class="text-muted text-center" style="padding:2rem;">No orders match the specified filter criteria.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-{% endif %}
-</div>
+  var timer = null;
+  var lastState = "";
+
+  function setStatus(state, message, progress) {
+    // Build DOM nodes with textContent — status messages can embed error text
+    // from the training run, so never inject them via innerHTML.
+    statusBox.style.display = "";
+    statusBox.innerHTML = "";
+
+    if (state === "running") {
+      var row = document.createElement("div");
+      row.className = "flex gap-2 items-center";
+      var spin = document.createElement("span");
+      spin.className = "spinner";
+      spin.setAttribute("aria-hidden", "true");
+      row.appendChild(spin);
+      if (progress) {
+        var strong = document.createElement("strong");
+        strong.textContent = progress.section;
+        row.appendChild(strong);
+        var meta = document.createElement("span");
+        meta.className = "text-sm text-muted";
+        meta.textContent = " " + progress.label + " (" + progress.index + "/" + progress.total + ")";
+        row.appendChild(meta);
+      }
+      statusBox.appendChild(row);
+      if (message) {
+        var p = document.createElement("p");
+        p.className = "text-sm text-muted";
+        p.textContent = message;
+        statusBox.appendChild(p);
+      }
+      if (runBtn) runBtn.disabled = true;
+    } else if (state === "done" || state === "error") {
+      var alert = document.createElement("div");
+      alert.className = "alert " + (state === "done" ? "alert-success" : "alert-danger");
+      alert.style.margin = "0";
+      var strong = document.createElement("strong");
+      strong.textContent = state === "done" ? "Experiment complete." : "Experiment failed.";
+      alert.appendChild(strong);
+      if (message) alert.appendChild(document.createTextNode(" " + message));
+      if (state === "done") {
+        var link = document.createElement("a");
+        link.href = "{{ url_for('model_comparison') }}";
+        link.textContent = " View results →";
+        alert.appendChild(link);
+      }
+      statusBox.appendChild(alert);
+      if (runBtn) runBtn.disabled = false;
+    }
+  }
+
+  function poll() {
+    fetch("{{ url_for('admin_experiment_status') }}", { headers: { "Accept": "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        lastState = s.state;
+        if (s.state !== "idle" && s.state !== "") {
+          setStatus(s.state, s.message, s.progress);
+        }
+      })
+      .catch(function () { /* network hiccup — retry */ });
+  }
+
+  // Poll while an experiment is (or just was) running.
+  timer = setInterval(function () {
+    poll();
+    if (lastState !== "running" && lastState !== "") {
+      clearInterval(timer);
+    }
+  }, 2500);
+  poll();
+})();
+</script>
 {% endblock %}

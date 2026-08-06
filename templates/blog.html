@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Blog — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:var(--space-12);">
+      <span class="eyebrow">Blog</span>
+      <h1 style="font-size:var(--text-5xl);">Logistics &amp; ML insights, <span class="text-gradient">straight from the team</span></h1>
+      <p class="lead">Deep dives on delivery prediction, courier analytics, and the machine learning that powers modern logistics.</p>
+    </div>
+
+    <div class="grid grid-auto">
+      <article class="card card-hover blog-card reveal">
+        <div class="blog-thumb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="blog-meta"><span class="badge badge-primary">Machine Learning</span><span>6 min read</span></div>
+        <h3>Why gradient boosting beats linear models for delivery time prediction</h3>
+        <p>Interactions between mode, distance, and parcel weight are rarely linear. Here's how a tuned HistGradientBoosting model captures them.</p>
+      </article>
+
+      <article class="card card-hover blog-card reveal reveal-delay-1">
+        <div class="blog-thumb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div class="blog-meta"><span class="badge badge-info">Network Design</span><span>4 min read</span></div>
+        <h3>Reading your route map with prediction data</h3>
+        <p>Your audit trail already knows which corridors move fast. Here's how to turn prediction volume into route-planning decisions.</p>
+      </article>
+
+      <article class="card card-hover blog-card reveal reveal-delay-2">
+        <div class="blog-thumb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+        <div class="blog-meta"><span class="badge badge-warning">Operations</span><span>5 min read</span></div>
+        <h3>Surface vs. Express vs. Air: pricing the speed trade-off</h3>
+        <p>Mode is the single strongest predictor of delivery duration. A practical framework for choosing the right service for each parcel.</p>
+      </article>
+
+      <article class="card card-hover blog-card reveal">
+        <div class="blog-thumb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <div class="blog-meta"><span class="badge badge-success">Engineering</span><span>7 min read</span></div>
+        <h3>Designing a prediction API that ops teams actually use</h3>
+        <p>JSON in, ETA out — but the details matter. Field validation, category normalization, and graceful handling of unseen cities.</p>
+      </article>
+
+      <article class="card card-hover blog-card reveal reveal-delay-1">
+        <div class="blog-thumb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+        <div class="blog-meta"><span class="badge badge-primary">Explainability</span><span>3 min read</span></div>
+        <h3>Why every prediction should carry its model version</h3>
+        <p>Versioned models and audit logs turn a black box into an explainable, defensible decision system.</p>
+      </article>
+
+      <article class="card card-hover blog-card reveal reveal-delay-2">
+        <div class="blog-thumb" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
+        <div class="blog-meta"><span class="badge badge-info">Guide</span><span>8 min read</span></div>
+        <h3>A beginner's guide to delivery-time forecasting</h3>
+        <p>From booking-time features to hold-out validation — everything you need to reason about ETA accuracy with confidence.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

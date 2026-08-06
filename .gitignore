@@ -12,10 +12,16 @@ env/
 *.db
 # Exclude old/auto-generated model artifacts by default
 models/*.joblib
+models/*.meta.json
 # But explicitly include the production DTDC model for deployment
 !models/dtdc_hgb_v*.joblib
+!models/dtdc_hgb_v*.meta.json
 
 # Static plots are generated at runtime
 static/plots/*.png
 .pytest_cache/
 .mypy_cache/
+
+# Experiment harness artifacts (reproducible from DTDC_Improved_Dataset.csv)
+dtdc_results/
+models/experiment_results.json

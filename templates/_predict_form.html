@@ -1,0 +1,170 @@
+<!-- Shared prediction form — used by index.html and demo.html -->
+<form method="post" action="{{ url_for('predict_form') }}" id="predictForm" data-validate novalidate>
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  {% if source == "demo" %}<input type="hidden" name="_source" value="demo">{% endif %}
+
+  <div class="card-head">
+    <div>
+      <h3 style="margin:0;">Shipment Estimator</h3>
+      <p class="text-sm text-muted" style="margin:0;">Enter route and parcel details for an instant ETA.</p>
+    </div>
+    <span class="badge badge-primary">ML Powered</span>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="origin">Origin City</label>
+    <div class="input-group">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <select id="origin" name="origin" class="select" required>
+        <option value="">Select origin city</option>
+        <option value="Mumbai" selected>Mumbai</option>
+        <option value="Delhi">Delhi</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="Kolkata">Kolkata</option>
+        <option value="Chennai">Chennai</option>
+        <option value="Hyderabad">Hyderabad</option>
+        <option value="Ahmedabad">Ahmedabad</option>
+        <option value="Pune">Pune</option>
+        <option value="Jaipur">Jaipur</option>
+        <option value="Lucknow">Lucknow</option>
+        <option value="Surat">Surat</option>
+        <option value="Nagpur">Nagpur</option>
+        <option value="Indore">Indore</option>
+        <option value="Bhopal">Bhopal</option>
+        <option value="Chandigarh">Chandigarh</option>
+        <option value="Guwahati">Guwahati</option>
+        <option value="Bhubaneswar">Bhubaneswar</option>
+        <option value="Patna">Patna</option>
+        <option value="Varanasi">Varanasi</option>
+        <option value="Agra">Agra</option>
+        <option value="Ludhiana">Ludhiana</option>
+        <option value="Amritsar">Amritsar</option>
+        <option value="Dehradun">Dehradun</option>
+        <option value="Raipur">Raipur</option>
+        <option value="Ranchi">Ranchi</option>
+        <option value="Kochi">Kochi</option>
+        <option value="Thiruvananthapuram">Thiruvananthapuram</option>
+        <option value="Coimbatore">Coimbatore</option>
+        <option value="Vizag">Vizag</option>
+        <option value="Nashik">Nashik</option>
+        <option value="Aurangabad">Aurangabad</option>
+        <option value="Srinagar">Srinagar</option>
+        <option value="Jamshedpur">Jamshedpur</option>
+        <option value="Shimla">Shimla</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="destination">Destination City</label>
+    <div class="input-group">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <select id="destination" name="destination" class="select" required>
+        <option value="">Select destination city</option>
+        <option value="Pune" selected>Pune</option>
+        <option value="Mumbai">Mumbai</option>
+        <option value="Delhi">Delhi</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="Kolkata">Kolkata</option>
+        <option value="Chennai">Chennai</option>
+        <option value="Hyderabad">Hyderabad</option>
+        <option value="Ahmedabad">Ahmedabad</option>
+        <option value="Jaipur">Jaipur</option>
+        <option value="Lucknow">Lucknow</option>
+        <option value="Surat">Surat</option>
+        <option value="Nagpur">Nagpur</option>
+        <option value="Indore">Indore</option>
+        <option value="Bhopal">Bhopal</option>
+        <option value="Chandigarh">Chandigarh</option>
+        <option value="Guwahati">Guwahati</option>
+        <option value="Bhubaneswar">Bhubaneswar</option>
+        <option value="Patna">Patna</option>
+        <option value="Varanasi">Varanasi</option>
+        <option value="Agra">Agra</option>
+        <option value="Ludhiana">Ludhiana</option>
+        <option value="Amritsar">Amritsar</option>
+        <option value="Dehradun">Dehradun</option>
+        <option value="Raipur">Raipur</option>
+        <option value="Ranchi">Ranchi</option>
+        <option value="Kochi">Kochi</option>
+        <option value="Thiruvananthapuram">Thiruvananthapuram</option>
+        <option value="Coimbatore">Coimbatore</option>
+        <option value="Vizag">Vizag</option>
+        <option value="Nashik">Nashik</option>
+        <option value="Aurangabad">Aurangabad</option>
+        <option value="Srinagar">Srinagar</option>
+        <option value="Jamshedpur">Jamshedpur</option>
+        <option value="Shimla">Shimla</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="field">
+      <label class="field-label" for="booking_weekday">Booking Day</label>
+      <select id="booking_weekday" name="booking_weekday" class="select" required>
+        <option value="Monday">Monday</option>
+        <option value="Tuesday">Tuesday</option>
+        <option value="Wednesday" selected>Wednesday</option>
+        <option value="Thursday">Thursday</option>
+        <option value="Friday">Friday</option>
+        <option value="Saturday">Saturday</option>
+        <option value="Sunday">Sunday</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label" for="mode">Shipment Mode</label>
+      <select id="mode" name="mode" class="select" required>
+        <option value="Surface" selected>Surface</option>
+        <option value="Express">Express</option>
+        <option value="Air Cargo">Air Cargo</option>
+      </select>
+      <p class="field-hint">Surface &middot; Express &middot; Air Cargo</p>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="field">
+      <label class="field-label" for="nature_of_consignment">Consignment Type</label>
+      <select id="nature_of_consignment" name="nature_of_consignment" class="select" required>
+        <option value="Dox" selected>Dox (Documents)</option>
+        <option value="Non-Dox">Non-Dox (Parcel)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field-label" for="total_pieces">Total Pieces</label>
+      <input id="total_pieces" name="total_pieces" type="number" min="1" value="1" class="input" required placeholder="e.g. 1">
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="actual_weight">Actual Weight (kg)</label>
+    <input id="actual_weight" name="actual_weight" type="number" step="0.01" min="0.01" value="1.0" class="input" required placeholder="e.g. 0.50">
+  </div>
+
+  <div class="form-row">
+    <div class="field">
+      <label class="field-label" for="volumetric_weight">Volumetric Weight (kg)</label>
+      <input id="volumetric_weight" name="volumetric_weight" type="number" step="0.01" min="0.01" value="1.0" class="input" required placeholder="e.g. 0.80">
+      <p class="field-hint">L &times; W &times; H &divide; 5000</p>
+    </div>
+    <div class="field">
+      <label class="field-label" for="chargeable_weight">Chargeable Weight (kg)</label>
+      <input id="chargeable_weight" name="chargeable_weight" type="number" step="0.01" min="0.01" value="1.0" class="input" required placeholder="e.g. 0.50">
+      <p class="field-hint">Higher of actual &amp; volumetric</p>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-danger" role="alert">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <button type="submit" id="predictBtn" class="btn btn-primary btn-lg btn-block">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Predict Delivery Time
+  </button>
+  <p class="text-xs text-muted text-center" style="margin:0.75rem 0 0;">Powered by HistGradientBoosting &middot; trained on real courier records</p>
+</form>

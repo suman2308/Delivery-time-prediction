@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Account — CourierAI{% endblock %}
+{% block content %}
+
+<section class="auth-wrap">
+  <div class="auth-card reveal">
+    <div class="profile-head">
+      <span class="profile-avatar" aria-hidden="true">{{ user['full_name'][:2] | upper }}</span>
+      <div class="profile-meta">
+        <h1 class="auth-title" style="margin:0;">{{ user['full_name'] }}</h1>
+        <p class="auth-sub" style="margin:0.25rem 0 0;">{{ user['email'] }}{% if user['company'] %} &middot; {{ user['company'] }}{% endif %}</p>
+      </div>
+    </div>
+    <div class="flex gap-2 wrap" style="margin:0 0 1.5rem;">
+      <span class="badge badge-primary"><span class="dot"></span> {{ plan_status.plan_name }} plan</span>
+      {% if user['created_at'] %}<span class="badge">Member since {{ user['created_at'][:10] }}</span>{% endif %}
+      <span class="badge">Personal API key</span>
+    </div>
+
+    <div class="card card-pad" style="text-align:left;">
+      <div class="field">
+        <label class="field-label" for="apiKeyValue">Your API key</label>
+        <div class="input-group">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          <code id="apiKeyValue" class="api-key-value" data-masked="{{ user['api_key_hint'] or 'No key generated yet' }}">{{ user['api_key_hint'] or 'No key generated yet' }}</code>
+        </div>
+        <div class="flex gap-2 mt-2 wrap">
+          <button type="button" id="keyShowBtn" class="btn btn-outline btn-sm">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Show
+          </button>
+          <button type="button" id="keyHideBtn" class="btn btn-outline btn-sm" style="display:none;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            Hide
+          </button>
+          <button type="button" id="keyCopyBtn" class="btn btn-primary btn-sm" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <p class="text-xs text-muted" style="margin:0.5rem 0 0;">Masked by default. Use <strong>Show</strong> to reveal it, <strong>Copy</strong> to copy it, and <strong>Hide</strong> to mask it again. Regenerating revokes the old key immediately.</p>
+      </div>
+
+      <form method="post" action="{{ url_for('regenerate_api_key') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary btn-lg btn-block">Regenerate key</button>
+      </form>
+    </div>
+
+    <div class="card card-pad mt-4" style="text-align:left;">
+      <div class="flex-between wrap gap-3 mb-4">
+        <div>
+          <div class="eyebrow">Your plan</div>
+          <h2 style="margin:0.25rem 0 0;font-size:var(--text-2xl);">{{ plan_status.plan_name }}
+            {% if plan_status.price > 0 %}<span class="badge badge-primary" style="margin-left:0.5rem;">₹{{ "{:,}".format(plan_status.price) }}/{{ plan_status.period }}</span>{% endif %}
+          </h2>
+        </div>
+        {% if plan_status.expires_at %}
+        <span class="text-sm text-muted">Renews: {{ plan_status.expires_at[:10] }}</span>
+        {% endif %}
+      </div>
+
+      {% if plan_status.unlimited %}
+      <div class="alert alert-success" role="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        <span><strong>Unlimited predictions.</strong> Your Pro plan has no monthly cap.</span>
+      </div>
+      {% else %}
+      <div class="flex-between wrap gap-2">
+        <span class="text-sm text-secondary"><strong>{{ plan_status.used }}</strong> of {{ plan_status.limit }} predictions used this month</span>
+        <span class="text-sm text-muted">Resets on the 1st</span>
+      </div>
+      {% set usage_pct = (plan_status.used * 100 / plan_status.limit) | round(0) | int if plan_status.limit else 0 %}
+      <div style="height:10px;border-radius:999px;background:var(--surface-strong);overflow:hidden;margin:0.5rem 0 1rem;">
+        <div style="width:{{ [usage_pct, 100] | min }}%;height:100%;border-radius:999px;background:var(--brand-gradient);"></div>
+      </div>
+      {% if plan_status.remaining == 0 %}
+      <div class="alert alert-danger" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <span>You have used all {{ plan_status.limit }} free predictions this month. Upgrade for unlimited.</span>
+      </div>
+      {% endif %}
+      {% endif %}
+
+      <div class="flex gap-2 wrap mt-4">
+        {% if plan_status.plan != "pro_monthly" %}
+        <form method="post" action="{{ url_for('upgrade_plan') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="plan" value="pro_monthly">
+          <button type="submit" class="btn btn-primary">Upgrade — ₹299/month</button>
+        </form>
+        {% endif %}
+        {% if plan_status.plan != "pro_yearly" %}
+        <form method="post" action="{{ url_for('upgrade_plan') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="plan" value="pro_yearly">
+          <button type="submit" class="btn btn-primary">Upgrade — ₹1,299/year</button>
+        </form>
+        {% endif %}
+        {% if plan_status.plan != "basic" %}
+        <form method="post" action="{{ url_for('upgrade_plan') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="plan" value="basic">
+          <button type="submit" class="btn btn-outline">Switch to free</button>
+        </form>
+        {% endif %}
+      </div>
+      <p class="text-xs text-muted" style="margin:0.75rem 0 0;">Demo billing — upgrades apply instantly, no payment is processed.</p>
+    </div>
+
+    {% if recent %}
+    <div class="card card-pad mt-4" style="text-align:left;">
+      <div class="flex-between wrap gap-2 mb-4">
+        <h2 style="margin:0;font-size:var(--text-2xl);">Prediction history</h2>
+        <a class="text-sm" href="{{ url_for('analytics') }}">View analytics</a>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-sm">
+          <thead><tr><th>Route</th><th>Mode</th><th>Days</th><th>When</th></tr></thead>
+          <tbody>
+            {% for r in recent %}
+            <tr data-row>
+              <td class="strong">{{ r['origin'] }} &rarr; {{ r['destination'] }}</td>
+              <td><span class="badge">{{ r['mode'] }}</span></td>
+              <td class="strong">{{ "%.2f"|format(r['predicted_days']) }}</td>
+              <td class="text-muted text-sm">{{ (r['created_at'] or '')[:16] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card card-pad mt-4" style="text-align:left;">
+      <h2 style="margin:0 0 0.25rem;font-size:var(--text-2xl);">Security</h2>
+      <p class="text-sm text-muted" style="margin:0 0 1rem;">Change your password and manage account preferences.</p>
+      <form method="post" action="#" data-demo="reset" style="margin-bottom:1rem;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="form-row">
+          <div class="field">
+            <label class="field-label" for="pwCurrent">Current password</label>
+            <input id="pwCurrent" type="password" class="input" placeholder="••••••••" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="pwNew">New password</label>
+            <input id="pwNew" type="password" class="input" placeholder="8+ characters" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-outline">Update password</button>
+        <p class="text-xs text-muted" style="margin:0.75rem 0 0;">Demo build — password changes are simulated and don't alter your account.</p>
+      </form>
+      <div class="divider" style="margin:1.25rem 0;"></div>
+      <div class="flex-between wrap gap-2">
+        <div>
+          <div class="text-sm" style="font-weight:600;">Download history</div>
+          <p class="text-xs text-muted" style="margin:0;">Export a record of your predictions (PDF report demo).</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" data-demo-download>Download PDF</button>
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-4" role="note" style="text-align:left;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span>
+        Send it as <code>X-API-Key: &lt;your key&gt;</code> (or <code>Authorization: Bearer &lt;key&gt;</code>) on
+        <code>POST /api/predict</code>. Unauthenticated calls get <code>401</code>; exceeding the rate limit gets <code>429</code>; exceeding your plan quota gets <code>402</code>.
+      </span>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

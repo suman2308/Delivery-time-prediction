@@ -3,94 +3,215 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Smart Delivery Engine{% endblock %}</title>
+  <meta name="description" content="CourierAI — an AI-powered platform that forecasts courier delivery times, uncovers route insights, and sharpens logistics decisions with machine learning.">
+  <meta name="theme-color" content="#070b14">
+  <title>{% block title %}CourierAI{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ static_version }}">
   {% block head %}{% endblock %}
 </head>
-<body data-time="day" data-weather="clear">
+<body>
+  <a class="skip-link" href="#mainContent">Skip to content</a>
 
-  <!-- Ambient Scene -->
-  <div class="ambient-scene" aria-hidden="true">
-    <div class="sky-layer"></div>
-    <div class="sun" aria-hidden="true"></div>
-    <div class="moon" aria-hidden="true"></div>
-    <div class="cloud cloud-1" aria-hidden="true"></div>
-    <div class="cloud cloud-2" aria-hidden="true"></div>
-    <div class="rain-layer" aria-hidden="true"></div>
-  </div>
-
-  <div class="page-wrap">
-
-    <!-- Navigation -->
-    <nav class="navbar" role="navigation" aria-label="Main navigation">
-      <a href="{{ url_for('index') }}" class="navbar-brand" aria-label="Home">
-        <span class="brand-icon" aria-hidden="true">SD</span>
-        <span class="brand-text">SmartDelivery</span>
+  <!-- Navigation -->
+  <header class="navbar" role="banner">
+    <div class="container nav-inner">
+      <a class="brand" href="{{ url_for('index') }}" aria-label="CourierAI — home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </span>
+        <span class="brand-name">CourierAI</span>
       </a>
 
-      <div class="navbar-links" id="mainNav" role="menubar">
-        <a href="{{ url_for('index') }}" class="nav-link" role="menuitem" id="navPredict">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <nav class="nav-links" id="navLinks" aria-label="Main navigation">
+        <a class="nav-link" href="{{ url_for('index') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Home
+        </a>
+        <a class="nav-link" href="{{ url_for('predict_page') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Predict
         </a>
-        <a href="{{ url_for('dashboard') }}" class="nav-link" role="menuitem" id="navDashboard">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <a class="nav-link" href="{{ url_for('tracking') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Tracking
+        </a>
+        <a class="nav-link" href="{{ url_for('analytics') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           Analytics
         </a>
-        <a href="{{ url_for('admin') }}" class="nav-link" role="menuitem" id="navAdmin">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          Database
+        <a class="nav-link" href="{{ url_for('model_comparison') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Models
         </a>
-        <a href="{{ url_for('metrics_json') }}" class="nav-link" target="_blank" rel="noopener" role="menuitem">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <a class="nav-link" href="{{ url_for('api_docs') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
           API
         </a>
+        <a class="nav-link" href="{{ url_for('pricing') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Pricing
+        </a>
+        <a class="nav-link" href="{{ url_for('about') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          About
+        </a>
+        <a class="nav-link" href="{{ url_for('contact') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Contact
+        </a>
+        {% if is_admin %}
+        <a class="nav-link" href="{{ url_for('admin') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Admin
+        </a>
+        {% endif %}
+
+        {% if current_user %}
+        <div class="nav-auth-mobile">
+          <a class="btn btn-outline btn-sm btn-block" href="{{ url_for('account') }}">My profile</a>
+          <form method="post" action="{{ url_for('logout') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline btn-sm btn-block">Log out</button>
+          </form>
+        </div>
+        {% else %}
+        <div class="nav-auth-mobile">
+          <a class="btn btn-outline btn-sm btn-block" href="{{ url_for('login') }}">Log in</a>
+          <a class="btn btn-primary btn-sm btn-block" href="{{ url_for('register') }}">Get started</a>
+        </div>
+        {% endif %}
+      </nav>
+
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" type="button" title="Toggle light/dark theme" aria-label="Toggle theme">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        {% if current_user %}
+        <a class="nav-user" href="{{ url_for('account') }}" title="{{ current_user['full_name'] }} — My profile">
+          <span class="nav-user-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <span class="nav-user-name">{{ current_user['full_name'].split()[0] }}</span>
+        </a>
+        <form class="nav-logout nav-auth-desktop" method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline btn-sm">Log out</button>
+        </form>
+        {% else %}
+        <a class="btn btn-outline btn-sm nav-auth-desktop" href="{{ url_for('login') }}">Log in</a>
+        <a class="btn btn-primary btn-sm nav-cta show nav-auth-desktop" href="{{ url_for('register') }}">Get started</a>
+        {% endif %}
+        <button class="nav-burger" id="navBurger" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navLinks">
+          <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="mainContent" role="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" role="contentinfo">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="{{ url_for('index') }}" aria-label="CourierAI — home">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </span>
+            <span class="brand-name">CourierAI</span>
+          </a>
+          <p>AI-powered delivery time prediction for modern courier operations. Turn historical shipment data into confident, explainable ETAs.</p>
+          <span class="badge badge-success"><span class="dot"></span> All systems operational</span>
+          <div class="footer-social">
+            <a href="https://github.com/" target="_blank" rel="noopener" aria-label="GitHub">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+            </a>
+            <a href="https://www.linkedin.com/" target="_blank" rel="noopener" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <span class="footer-title">Product</span>
+          <a href="{{ url_for('predict_page') }}">Predict</a>
+          <a href="{{ url_for('tracking') }}">Tracking</a>
+          <a href="{{ url_for('analytics') }}">Analytics</a>
+          <a href="{{ url_for('model_comparison') }}">Model Comparison</a>
+          <a href="{{ url_for('api_docs') }}">API</a>
+          <a href="{{ url_for('pricing') }}">Pricing</a>
+        </div>
+
+        <div class="footer-col">
+          <span class="footer-title">Company</span>
+          <a href="{{ url_for('about') }}">About Us</a>
+          <a href="{{ url_for('contact') }}">Contact</a>
+          <a href="{{ url_for('blog') }}">Blog</a>
+          <a href="{{ url_for('index') }}#faq">FAQ</a>
+          <a href="{{ url_for('register') }}">Sign up</a>
+        </div>
+
+        <div class="footer-col">
+          <span class="footer-title">Contact</span>
+          <a href="mailto:hello@courierai.app">hello@courierai.app</a>
+          <a href="tel:+919876543210">+91 98765 43210</a>
+          <span class="footer-contact">CourierAI<br>Andheri East, Mumbai<br>Maharashtra 400069, India</span>
+          <a href="{{ url_for('forgot_password') }}">Privacy &amp; Terms</a>
+        </div>
       </div>
 
-      <div class="navbar-actions">
-        <span class="status-badge" aria-label="System status: operational">
+      <div class="footer-bottom">
+        <span>&copy; <span data-year></span> CourierAI. All rights reserved.</span>
+        <span class="status-chip">
           <span class="status-dot" aria-hidden="true"></span>
-          Operational
+          HistGradientBoosting &middot; Flask &middot; scikit-learn
         </span>
-        <button class="theme-btn" id="themeToggle" type="button" title="Toggle light/dark theme" aria-label="Toggle theme">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="12" cy="12" r="5"/>
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-          </svg>
-        </button>
-        <button class="nav-toggle" id="navToggle" type="button" title="Toggle navigation menu" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mainNav">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
       </div>
-    </nav>
+    </div>
+  </footer>
 
-    <!-- Main Content -->
-    <main role="main">
-      {% block content %}{% endblock %}
-    </main>
-
-    <!-- Footer -->
-    <footer class="footer" role="contentinfo">
-      <div class="footer-text">
-        &copy; 2026 SmartDelivery Platform &mdash; Built with Flask &middot; scikit-learn &middot; HistGradientBoosting
-      </div>
-      <div class="footer-links">
-        <a href="{{ url_for('index') }}">Predictor</a>
-        <a href="{{ url_for('dashboard') }}">Analytics</a>
-        <a href="{{ url_for('admin') }}">Database</a>
-        <a href="{{ url_for('metrics_json') }}" target="_blank" rel="noopener">API</a>
-      </div>
-    </footer>
+  <!-- Prediction loading overlay -->
+  <div class="predict-overlay" id="predictOverlay" aria-hidden="true">
+    <div class="predict-overlay-card" role="status">
+      <div class="predict-spinner" aria-hidden="true"></div>
+      <h3>Running the AI model</h3>
+      <ul class="predict-steps">
+        <li class="step" data-step="0">Checking weather &amp; route conditions</li>
+        <li class="step" data-step="1">Analyzing traffic patterns</li>
+        <li class="step" data-step="2">Running the prediction model</li>
+        <li class="step" data-step="3">Generating explanation</li>
+        <li class="step" data-step="4">Prediction complete</li>
+      </ul>
+    </div>
   </div>
 
-  <script src="{{ url_for('static', filename='js/scene.js') }}"></script>
+  <!-- Toast region -->
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  <!-- Modal root -->
+  <div class="modal-backdrop" id="modalRoot" aria-hidden="true"></div>
+
+  <!-- Back to top -->
+  <button class="back-to-top" id="backToTop" type="button" aria-label="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+  </button>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <script id="flashData" type="application/json">{{ messages | tojson }}</script>
+    {% endif %}
+  {% endwith %}
+
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ static_version }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

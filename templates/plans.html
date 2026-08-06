@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Choose your plan — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:var(--space-8);">
+      <span class="eyebrow">Plans</span>
+      <h1 style="font-size:var(--text-5xl);">Choose your <span class="text-gradient">plan</span></h1>
+      <p class="lead">Start free with 50 predictions a month. Upgrade to Pro for unlimited predictions — demo billing, no real card required.</p>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="pricing-card reveal">
+        <div class="plan-name">Free</div>
+        <p class="plan-desc">Everything you need to try delivery prediction.</p>
+        <div class="price">
+          <span class="amount">₹0</span>
+          <span class="price-period">/forever</span>
+        </div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>50 predictions / month</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Personal API key</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Analytics dashboard</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Community support</li>
+        </ul>
+        {% if current_user and plan_status %}
+          {% if plan_status.plan == "basic" %}
+            <button class="btn btn-outline btn-block" disabled>Your current plan</button>
+          {% else %}
+            <form method="post" action="{{ url_for('upgrade_plan') }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="plan" value="basic">
+              <button type="submit" class="btn btn-outline btn-block">Switch to free</button>
+            </form>
+          {% endif %}
+        {% else %}
+          <a class="btn btn-outline btn-block" href="{{ url_for('register') }}">Start for free</a>
+        {% endif %}
+      </div>
+
+      <!-- Pro -->
+      <div class="pricing-card popular reveal reveal-delay-1">
+        <div class="plan-name">Pro</div>
+        <p class="plan-desc">Unlimited predictions for growing teams.</p>
+        <div class="price">
+          <span class="amount">₹299</span>
+          <span class="price-period">/month</span>
+        </div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>Unlimited predictions</strong></li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Higher API rate limits</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Route &amp; mode insights</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
+        </ul>
+        {% if current_user and plan_status %}
+          {% if plan_status.plan == "pro_monthly" %}
+            <button class="btn btn-primary btn-block" disabled>Your current plan</button>
+          {% else %}
+            <button class="btn btn-primary btn-block" type="button" data-checkout="pro_monthly" data-price="299" data-label="Pro · ₹299/month">Upgrade for ₹299/mo</button>
+          {% endif %}
+        {% else %}
+          <a class="btn btn-primary btn-block" href="{{ url_for('register') }}">Get started</a>
+        {% endif %}
+      </div>
+
+      <!-- Pro+ -->
+      <div class="pricing-card reveal reveal-delay-2">
+        <div class="plan-name">Pro+</div>
+        <p class="plan-desc">Unlimited predictions for a full year — best value.</p>
+        <div class="price">
+          <span class="amount">₹1,299</span>
+          <span class="price-period">/year</span>
+        </div>
+        <ul class="pricing-features">
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><strong>Unlimited predictions</strong></li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Higher API rate limits</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Route &amp; mode insights</li>
+          <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
+        </ul>
+        {% if current_user and plan_status %}
+          {% if plan_status.plan == "pro_yearly" %}
+            <button class="btn btn-primary btn-block" disabled>Your current plan</button>
+          {% else %}
+            <button class="btn btn-primary btn-block" type="button" data-checkout="pro_yearly" data-price="1299" data-label="Pro+ · ₹1,299/year">Upgrade for ₹1,299/yr</button>
+          {% endif %}
+        {% else %}
+          <a class="btn btn-primary btn-block" href="{{ url_for('register') }}">Get started</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <p class="text-center text-muted text-sm mt-8 reveal">Prices in INR &middot; demo billing — no real payment is processed. Pro plans auto-expire back to Free after their period.</p>
+  </div>
+</section>
+
+{% if current_user %}
+<!-- Demo checkout modal -->
+<div class="checkout-overlay" id="checkoutOverlay" aria-hidden="true">
+  <div class="checkout-card" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+    <button class="checkout-close" type="button" data-checkout-close aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="checkout-step" id="checkoutFormStep">
+      <span class="eyebrow">Demo checkout</span>
+      <h2 id="checkoutTitle" style="margin:0.75rem 0 0.25rem;font-size:var(--text-2xl);">Complete your upgrade</h2>
+      <p class="text-sm text-muted" id="checkoutSummary">—</p>
+
+      <form id="checkoutForm" data-validate novalidate>
+        <div class="field">
+          <label class="field-label" for="ccName">Name on card</label>
+          <input id="ccName" class="input" placeholder="Priya Sharma" autocomplete="cc-name" required>
+        </div>
+        <div class="field">
+          <label class="field-label" for="ccNumber">Card number</label>
+          <input id="ccNumber" class="input" inputmode="numeric" placeholder="4242 4242 4242 4242" autocomplete="cc-number" required>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label class="field-label" for="ccExpiry">Expiry</label>
+            <input id="ccExpiry" class="input" placeholder="MM / YY" autocomplete="cc-exp" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="ccCvc">CVC</label>
+            <input id="ccCvc" class="input" inputmode="numeric" placeholder="123" autocomplete="cc-csc" required>
+          </div>
+        </div>
+        <button type="submit" id="checkoutPayBtn" class="btn btn-primary btn-lg btn-block">
+          Pay <span id="checkoutPayAmount">₹299</span>
+        </button>
+        <p class="text-xs text-muted text-center" style="margin:0.75rem 0 0;">This is a demo — no payment is processed and no card is charged.</p>
+      </form>
+    </div>
+
+    <div class="checkout-step" id="checkoutSuccessStep" hidden>
+      <div class="checkout-check" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2 style="margin:1rem 0 0.25rem;font-size:var(--text-2xl);">Payment successful</h2>
+      <p class="text-sm text-muted">Your plan is now active. Taking you to your dashboard…</p>
+    </div>
+  </div>
+</div>
+
+<form id="checkoutSubmitForm" method="post" action="{{ url_for('upgrade_plan') }}" class="sr-only" hidden>
+  <input type="hidden" name="plan" id="checkoutPlanInput">
+  <input type="hidden" name="next" value="/dashboard">
+</form>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var overlay = document.getElementById("checkoutOverlay");
+    if (!overlay) return;
+    var formStep = document.getElementById("checkoutFormStep");
+    var successStep = document.getElementById("checkoutSuccessStep");
+    var summary = document.getElementById("checkoutSummary");
+    var payBtn = document.getElementById("checkoutPayBtn");
+    var payAmount = document.getElementById("checkoutPayAmount");
+    var planInput = document.getElementById("checkoutPlanInput");
+    var submitForm = document.getElementById("checkoutSubmitForm");
+    var selected = null;
+
+    function fmtRs(n) { return "₹" + Number(n).toLocaleString("en-IN"); }
+
+    document.querySelectorAll("[data-checkout]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        selected = {
+          plan: btn.getAttribute("data-checkout"),
+          price: btn.getAttribute("data-price"),
+          label: btn.getAttribute("data-label")
+        };
+        summary.textContent = selected.label;
+        payAmount.textContent = fmtRs(selected.price);
+        payBtn.textContent = "Pay " + fmtRs(selected.price);
+        successStep.hidden = true;
+        formStep.hidden = false;
+        overlay.classList.add("open");
+        overlay.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        var first = overlay.querySelector("input");
+        if (first) first.focus();
+      });
+    });
+
+    function close() {
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+    }
+    overlay.querySelectorAll("[data-checkout-close]").forEach(function (b) {
+      b.addEventListener("click", close);
+    });
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && overlay.classList.contains("open")) close();
+    });
+
+    document.getElementById("checkoutForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (overlay.querySelectorAll(".has-error").length) return;
+      if (!selected) return;
+      formStep.hidden = true;
+      successStep.hidden = false;
+      planInput.value = selected.plan;
+      setTimeout(function () {
+        submitForm.submit();
+      }, 1600);
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Analytics — CourierAI{% endblock %}
+{% block content %}
+
+<section class="section" style="padding-bottom:0;">
+  <div class="container">
+    <div class="flex-between wrap gap-4 mb-6 reveal">
+      <div>
+        <span class="eyebrow">Analytics</span>
+        <h1 style="margin:0.75rem 0 0.5rem;font-size:var(--text-4xl);">What the data <span class="text-gradient">keeps telling you</span></h1>
+        <p class="text-muted" style="margin:0;">Live model metrics, prediction trends and platform activity — all from the audit trail.</p>
+      </div>
+      <div class="flex gap-2 wrap items-center">
+        {% if demo_mode %}
+        <span class="badge badge-warning"><span class="dot"></span> Demo mode &middot; sample data</span>
+        {% endif %}
+        <a class="btn btn-outline" href="{{ url_for('predict_page') }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          New prediction
+        </a>
+        <a class="btn btn-primary" href="{{ url_for('dashboard') }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </a>
+      </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <span>{{ error }}</span>
+    </div>
+    {% elif kpis %}
+    <!-- KPI cards -->
+    <div class="kpi-grid reveal">
+      <div class="kpi-card">
+        <div class="kpi-icon blue" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>Predictions</h3>
+        <div class="kpi-value">{{ "{:,}".format(kpis.prediction_count) }}</div>
+        <p class="kpi-label">Logged in the audit trail</p>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <h3>Model MAE</h3>
+        <div class="kpi-value">{{ "%.3f"|format(kpis.model_mae) }} <small>days</small></div>
+        <p class="kpi-label">Hold-out test error</p>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon yellow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
+        <h3>Model RMSE</h3>
+        <div class="kpi-value">{{ "%.3f"|format(kpis.model_rmse) }} <small>days</small></div>
+        <p class="kpi-label">Root mean squared error</p>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon purple" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <h3>Model R&sup2;</h3>
+        <div class="kpi-value">{{ "%.3f"|format(kpis.model_r2) }}</div>
+        <p class="kpi-label">Variance explained</p>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon red" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <h3>Avg. Delivery</h3>
+        <div class="kpi-value">{{ kpis.avg_predicted_days }} <small>days</small></div>
+        <p class="kpi-label">Across all predictions</p>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon green" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <h3>Users</h3>
+        <div class="kpi-value">{{ "{:,}".format(kpis.user_count) }}</div>
+        <p class="kpi-label">Registered accounts</p>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-2 mt-8 reveal" style="align-items:start;">
+      <div class="card chart-card">
+        <h3 class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Predicted Duration by Mode
+        </h3>
+        <img class="chart-img" src="{{ url_for('static', filename='plots/' + plots.mode_impact) }}" alt="Bar chart of average predicted delivery days per mode" loading="lazy">
+      </div>
+      <div class="card chart-card">
+        <h3 class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          Distribution of Predicted Durations
+        </h3>
+        <img class="chart-img" src="{{ url_for('static', filename='plots/' + plots.distribution) }}" alt="Histogram of predicted delivery days" loading="lazy">
+      </div>
+    </div>
+
+    <div class="card chart-card mt-6 reveal" style="max-width:820px;">
+      <h3 class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Top Routes by Prediction Volume
+      </h3>
+      <img class="chart-img" src="{{ url_for('static', filename='plots/' + plots.routes) }}" alt="Most predicted origin-destination pairs" loading="lazy" style="max-width:700px;">
+    </div>
+
+    <div class="grid grid-2 mt-8" style="align-items:start;">
+      <!-- Recent predictions -->
+      <div class="card reveal" style="overflow:hidden;padding:0;">
+        <div class="card-head" style="padding:var(--space-5) var(--space-6);margin:0;border-bottom:1px solid var(--border);">
+          <h3 style="margin:0;">Recent predictions</h3>
+          <a class="text-sm" href="{{ url_for('dashboard') }}">View all</a>
+        </div>
+        {% if recent %}
+        <div class="table-wrap">
+          <table class="table table-sm">
+            <thead><tr><th>Route</th><th>Mode</th><th>Days</th></tr></thead>
+            <tbody>
+              {% for r in recent %}
+              <tr data-row>
+                <td class="strong">{{ r['origin'] }} &rarr; {{ r['destination'] }}</td>
+                <td><span class="badge">{{ r['mode'] }}</span></td>
+                <td class="strong">{{ "%.2f"|format(r['predicted_days']) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-8);">
+          <div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <h3>No predictions yet</h3>
+          <p>Run a prediction and it will appear here.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- System activity -->
+      <div class="card reveal reveal-delay-1">
+        <h3 class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Recent system activity
+        </h3>
+        <div class="activity-feed">
+          {% for a in activity %}
+          <div class="activity-item">
+            <span class="activity-icon activity-{{ a.icon }}" aria-hidden="true">
+              {% if a.icon == "model" %}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              {% elif a.icon == "predict" %}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {% elif a.icon == "user" %}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              {% else %}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              {% endif %}
+            </span>
+            <div class="activity-body">
+              <div class="activity-title">{{ a.title }}</div>
+              <div class="activity-detail">{{ a.detail }}</div>
+            </div>
+            <span class="activity-time">{{ a.time }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}
