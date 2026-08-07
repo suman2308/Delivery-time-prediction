@@ -247,6 +247,11 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); }
 .grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-6); }
+/* Grid children must be allowed to shrink below their content width, or long
+   code blocks / tables inside a column force the whole page wider than the
+   viewport (horizontal overflow). overflow-x:auto on the inner element then
+   scrolls instead of the page. */
+.grid-2 > *, .grid-3 > *, .grid-4 > *, .grid-auto > * { min-width: 0; }
 
 .flex { display: flex; }
 .flex-center { display: flex; align-items: center; justify-content: center; }
@@ -1414,14 +1419,12 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .auth-foot { text-align: center; font-size: var(--text-sm); color: var(--text-muted); margin-top: var(--space-6); }
 
-/* Password strength */
-.strength-meter { display: flex; gap: var(--space-1); margin-top: var(--space-2); }
-.strength-meter span { flex: 1; height: 4px; border-radius: 4px; background: var(--surface-strong); transition: background var(--speed) var(--ease); }
-.strength-meter[data-level="1"] span:nth-child(-n+1) { background: var(--danger); }
-.strength-meter[data-level="2"] span:nth-child(-n+2) { background: var(--warning); }
-.strength-meter[data-level="3"] span:nth-child(-n+3) { background: var(--info); }
-.strength-meter[data-level="4"] span:nth-child(-n+4) { background: var(--success); }
-.strength-label { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1); }
+/* Password strength (text only) */
+.strength-label { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-2); }
+.strength-label.is-too-weak, .strength-label.is-weak { color: var(--danger); font-weight: 600; }
+.strength-label.is-fair { color: var(--warning); font-weight: 600; }
+.strength-label.is-good { color: var(--info); font-weight: 600; }
+.strength-label.is-strong { color: var(--success); font-weight: 600; }
 
 /* ── 25. Error pages ──────────────────────────────────────────────────────── */
 .error-page {
@@ -1771,6 +1774,14 @@ html[data-theme="light"] .predict-overlay { background: rgba(244, 246, 251, 0.78
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-brand);
+}
+.profile-avatar-img {
+  object-fit: cover;
+  background: var(--surface-strong);
+}
+.req {
+  color: var(--danger, #f87171);
+  font-weight: 700;
 }
 .profile-meta { min-width: 0; }
 

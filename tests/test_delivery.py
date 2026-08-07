@@ -267,6 +267,208 @@ def test_protected_routes_require_login(monkeypatch, tmp_path):
     assert client.get("/admin").status_code == 200
 
 
+def test_stale_session_redirects_to_login(monkeypatch, tmp_path):
+    """A session whose user was deleted must not crash protected routes.
+
+    Reproduces the TypeError: 'NoneType' object is not subscriptable seen on
+    /dashboard when the session cookie outlives the account (DB reset, admin
+    deletion). The stale session is cleared and the user sent to login."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    _register_and_login(client)
+    assert client.get("/dashboard").status_code in (200, 503)
+
+    # Simulate account deletion / DB reset while the session cookie survives.
+    uid = db.get_user_by_email("demo@example.com")["id"]
+    with db.connection() as conn:
+        conn.execute("DELETE FROM users WHERE id = ?", (uid,))
+
+    # Protected routes must not 500: redirect to login and clear the session.
+    resp = client.get("/dashboard")
+    assert resp.status_code == 302, f"/dashboard with stale session: {resp.status_code}"
+    assert resp.headers["Location"] == "/login?next=/dashboard"
+    with client.session_transaction() as sess:
+        assert sess.get("user_id") is None, "stale session must be cleared"
+
+    # /login and /register render normally (no redirect loop, no crash).
+    assert client.get("/login").status_code == 200
+    assert client.get("/register").status_code == 200
+
+    # A fresh account works again after the stale session is gone.
+    resp = _register_and_login(client, email="fresh@example.com")
+    assert resp.status_code == 302
+    assert client.get("/dashboard").status_code in (200, 503)
+
+
+def test_register_company_defaults_to_personal(monkeypatch, tmp_path):
+    """Omitting the company field on registration defaults to 'Personal'."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    # No company field sent → defaults to "Personal"
+    resp = _post(
+        client,
+        "/register",
+        {
+            "full_name": "Solo User",
+            "email": "solo@example.com",
+            "password": "SuperSecret1!",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("solo@example.com")
+    assert row["company"] == "Personal"
+
+    # An explicit company is preserved (logout first — still logged in)
+    _post(client, "/logout")
+    resp = _post(
+        client,
+        "/register",
+        {
+            "full_name": "Team User",
+            "email": "team@example.com",
+            "password": "SuperSecret1!",
+            "company": "RapidCargo",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("team@example.com")
+    assert row["company"] == "RapidCargo"
+
+
+def test_profile_update_name_company_avatar(monkeypatch, tmp_path):
+    """The account profile endpoint updates name/company and can clear the avatar."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+    _register_and_login(client, email="edit@example.com")
+
+    # Update name + company
+    resp = _post(
+        client,
+        "/account/profile",
+        {"full_name": "Renamed User", "company": "NewCo"},
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("edit@example.com")
+    assert row["full_name"] == "Renamed User"
+    assert row["company"] == "NewCo"
+
+    # Empty company falls back to "Personal"
+    resp = _post(
+        client,
+        "/account/profile",
+        {"full_name": "Renamed User", "company": "   "},
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("edit@example.com")
+    assert row["company"] == "Personal"
+
+    # Too-short name is rejected without changing anything
+    resp = _post(
+        client,
+        "/account/profile",
+        {"full_name": "X", "company": "NewCo"},
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("edit@example.com")
+    assert row["full_name"] == "Renamed User"
+
+    # Avatar upload is stored as a data-URL
+    import io
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
+    resp = client.post(
+        "/account/profile",
+        data={
+            "_csrf_token": _csrf(client),
+            "full_name": "Renamed User",
+            "company": "NewCo",
+            "avatar": (io.BytesIO(png), "pic.png"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("edit@example.com")
+    assert row["avatar"].startswith("data:image/png;base64,")
+
+    # Non-image upload is rejected (wrong extension → mimetype not whitelisted)
+    resp = client.post(
+        "/account/profile",
+        data={
+            "_csrf_token": _csrf(client),
+            "full_name": "Renamed User",
+            "company": "NewCo",
+            "avatar": (io.BytesIO(b"not an image"), "evil.txt"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("edit@example.com")
+    assert row["avatar"].startswith("data:image/png;"), "avatar must be unchanged"
+
+    # A file with an image extension but fake content is rejected by magic bytes
+    resp = client.post(
+        "/account/profile",
+        data={
+            "_csrf_token": _csrf(client),
+            "full_name": "Renamed User",
+            "company": "NewCo",
+            "avatar": (io.BytesIO(b"this is not really a png"), "fake.png"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 302
+    row = db.get_user_by_email("edit@example.com")
+    assert row["avatar"].startswith("data:image/png;"), "avatar must be unchanged"
+
+
+def test_same_origin_and_destination_rejected(monkeypatch, tmp_path):
+    """A prediction with identical origin/destination is rejected (web + API)."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    data = {
+        "origin": "Mumbai", "destination": "Mumbai",
+        "booking_weekday": "Monday", "mode": "Surface",
+        "nature_of_consignment": "Dox",
+        "total_pieces": "1", "actual_weight": "0.5",
+        "volumetric_weight": "0.8", "chargeable_weight": "0.5",
+    }
+
+    # Web form (anonymous demo)
+    resp = _post(client, "/predict", data)
+    assert resp.status_code == 400, f"web form same-city: {resp.status_code}"
+    assert b"cannot be the same city" in resp.data
+
+    # API with a valid key
+    api_key = _register_get_key(client, email="samecity@example.com")
+    payload = {
+        "origin": "Mumbai", "destination": "mumbai",  # case-insensitive
+        "booking_weekday": "Monday", "mode": "Surface",
+        "nature_of_consignment": "Dox",
+        "total_pieces": 1, "actual_weight": 0.5,
+        "volumetric_weight": 0.8, "chargeable_weight": 0.5,
+    }
+    resp = client.post("/api/predict", json=payload, headers={"X-API-Key": api_key})
+    assert resp.status_code == 400
+    assert "same city" in resp.get_json()["error"]
+
+    # Different cities still work
+    payload["destination"] = "Pune"
+    resp = client.post("/api/predict", json=payload, headers={"X-API-Key": api_key})
+    assert resp.status_code == 200
+
+
 def test_api_key_required_and_valid(monkeypatch, tmp_path):
     """The prediction API requires a valid API key; regeneration revokes it."""
     monkeypatch.setenv("BOOTSTRAP_ON_START", "0")

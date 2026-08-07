@@ -1,15 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Account — CourierAI{% endblock %}
+
 {% block content %}
 
 <section class="auth-wrap">
   <div class="auth-card reveal">
     <div class="profile-head">
+      {% if user['avatar'] %}
+      <img class="profile-avatar profile-avatar-img" src="{{ user['avatar'] }}" alt="{{ user['full_name'] }} profile picture" width="64" height="64">
+      {% else %}
       <span class="profile-avatar" aria-hidden="true">{{ user['full_name'][:2] | upper }}</span>
+      {% endif %}
       <div class="profile-meta">
         <h1 class="auth-title" style="margin:0;">{{ user['full_name'] }}</h1>
         <p class="auth-sub" style="margin:0.25rem 0 0;">{{ user['email'] }}{% if user['company'] %} &middot; {{ user['company'] }}{% endif %}</p>
       </div>
+      <button type="button" class="btn btn-outline btn-sm" id="editProfileBtn" style="margin-left:auto;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+        Edit profile
+      </button>
+    </div>
+
+    <div class="card card-pad mb-4" id="editProfileCard" style="text-align:left;display:none;">
+      <div class="eyebrow">Edit profile</div>
+      <p class="text-sm text-muted" style="margin:0.25rem 0 1rem;">Update your display name, company or profile picture.</p>
+      <form method="post" action="{{ url_for('update_profile') }}" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="form-row">
+          <div class="field">
+            <label class="field-label" for="profileName">Full name <span class="req" aria-hidden="true">*</span></label>
+            <input id="profileName" name="full_name" type="text" class="input" value="{{ user['full_name'] }}" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="profileCompany">Company</label>
+            <input id="profileCompany" name="company" type="text" class="input" value="{{ user['company'] or 'Personal' }}" placeholder="Personal">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="profileAvatar">Profile picture</label>
+          <input id="profileAvatar" name="avatar" type="file" class="input" accept="image/*">
+          <p class="text-xs text-muted" style="margin:0.5rem 0 0;">PNG or JPG, under 2 MB. Leave empty to keep your current picture.</p>
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary">Save changes</button>
+          <button type="button" class="btn btn-outline" id="editProfileCancel">Cancel</button>
+        </div>
+      </form>
     </div>
     <div class="flex gap-2 wrap" style="margin:0 0 1.5rem;">
       <span class="badge badge-primary"><span class="dot"></span> {{ plan_status.plan_name }} plan</span>
@@ -156,7 +192,10 @@
           <div class="text-sm" style="font-weight:600;">Download history</div>
           <p class="text-xs text-muted" style="margin:0;">Export a record of your predictions (PDF report demo).</p>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" data-demo-download>Download PDF</button>
+        <button type="button" class="btn btn-outline btn-sm" data-demo-download>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download PDF
+        </button>
       </div>
     </div>
 
@@ -170,4 +209,25 @@
   </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var btn = document.getElementById("editProfileBtn");
+    var card = document.getElementById("editProfileCard");
+    var cancel = document.getElementById("editProfileCancel");
+    if (!btn || !card) return;
+    btn.addEventListener("click", function () {
+      card.style.display = "block";
+      btn.style.display = "none";
+      var first = card.querySelector("input");
+      if (first) first.focus();
+    });
+    cancel.addEventListener("click", function () {
+      card.style.display = "none";
+      btn.style.display = "";
+    });
+  })();
+</script>
 {% endblock %}

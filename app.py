@@ -309,10 +309,18 @@ def _static_version() -> str:
 
 def login_required(view):
     """Redirect anonymous visitors to the login page, remembering where they
-    were headed so they can be returned after signing in."""
+    were headed so they can be returned after signing in.
+
+    Also handles stale sessions: a session cookie may still carry a user_id
+    for an account that was deleted or whose DB row was reset. Such sessions
+    are cleared and sent to login instead of crashing downstream on None."""
     @wraps(view)
     def wrapped(*args, **kwargs):
         if session.get("user_id") is None:
+            return redirect(url_for("login", next=request.path))
+        if _current_user() is None:
+            session.clear()
+            flash("Your session has expired. Please log in again.", "info")
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
 
@@ -359,7 +367,11 @@ def _safe_next(target: str | None) -> str:
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit(config.LOGIN_RATE_LIMIT, methods=["POST"], override_defaults=False)
 def login():
-    if session.get("user_id"):
+    # A session pointing at a deleted account is stale — clean it up now so a
+    # dead user_id never lingers in the cookie (cleared again on login_required).
+    if session.get("user_id") and _current_user() is None:
+        session.clear()
+    if _current_user():
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
@@ -388,12 +400,12 @@ def login():
 @app.route("/register", methods=["GET", "POST"])
 @limiter.limit(config.REGISTER_RATE_LIMIT, methods=["POST"], override_defaults=False)
 def register():
-    if session.get("user_id"):
+    if _current_user():
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
-        company = request.form.get("company", "").strip()
+        company = request.form.get("company", "").strip() or "Personal"
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
 
@@ -749,6 +761,8 @@ def _parse_dtdc_input(values):
         raise ValueError("origin is required.")
     if not destination:
         raise ValueError("destination is required.")
+    if origin.lower() == destination.lower():
+        raise ValueError("Origin and destination cannot be the same city.")
     if not booking_weekday:
         raise ValueError("booking_weekday is required.")
     if not mode:
@@ -1161,6 +1175,64 @@ def account():
     return render_template(
         "account.html", user=user, plan_status=plan_status, recent=recent
     )
+
+
+@app.route("/account/profile", methods=["POST"])
+@login_required
+@limiter.limit("10 per minute")
+def update_profile():
+    """Update the logged-in user's display name, company and avatar.
+
+    The avatar is a small image upload stored as a data-URL so no filesystem
+    write is needed. Oversized or non-image uploads are rejected gracefully.
+    """
+    user = _current_user()
+    full_name = request.form.get("full_name", "").strip()
+    company = request.form.get("company", "").strip() or "Personal"
+
+    if len(full_name) < 2:
+        flash("Please enter your full name (at least 2 characters).", "error")
+        return redirect(url_for("account"))
+
+    avatar = user["avatar"]  # keep the current one unless replaced
+    upload = request.files.get("avatar")
+    if upload and upload.filename:
+        data = upload.read()
+        if len(data) > 2 * 1024 * 1024:
+            flash("Profile picture must be under 2 MB.", "error")
+            return redirect(url_for("account"))
+        content_type = (upload.mimetype or "").lower()
+        if content_type not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+            flash("Profile picture must be a PNG, JPG, WebP or GIF image.", "error")
+            return redirect(url_for("account"))
+        # Validate magic bytes so a spoofed mimetype can't smuggle non-image
+        # data into the stored avatar (data-URLs are rendered in <img src>).
+        if not _looks_like_image(data, content_type):
+            flash("Profile picture does not look like a valid image.", "error")
+            return redirect(url_for("account"))
+        avatar = f"data:{content_type};base64,{base64.b64encode(data).decode('ascii')}"
+
+    db.update_user_profile(user["id"], full_name, company, avatar)
+    flash("Profile updated.", "success")
+    return redirect(url_for("account"))
+
+
+def _looks_like_image(data: bytes, content_type: str) -> bool:
+    """Cheap magic-byte check against the declared image type."""
+    signatures = {
+        "image/png": b"\x89PNG\r\n\x1a\n",
+        "image/jpeg": b"\xff\xd8\xff",
+        "image/gif": b"GIF8",
+        "image/webp": b"RIFF",  # plus WEBP at offset 8, checked below
+    }
+    sig = signatures.get(content_type)
+    if sig is None:
+        return False
+    if data[: len(sig)] != sig:
+        return False
+    if content_type == "image/webp":
+        return data[8:12] == b"WEBP"
+    return True
 
 
 @app.route("/account/key")

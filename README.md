@@ -45,6 +45,9 @@ This project builds a production-ready ML system that predicts delivery duration
 - **👤 User Accounts** — Register, log in, and log out with hashed passwords (Werkzeug scrypt); the analytics dashboard and data explorer are behind a login
 - **🔑 Secured REST API** — Per-user API keys (hashed at rest, revocable) required on `POST /api/predict`, with per-key rate limiting and JSON 429 responses
 - **💳 Plans & quotas** — Every account starts on the free **Free** plan (50 predictions/month); **Pro ₹299/month** and **Pro+ ₹1,299/year** unlock unlimited predictions. Quotas are enforced on the API (HTTP `402`) and on logged-in web predictions
+- **👤 Editable profile** — Update your display name, company (defaults to **Personal** when blank) and profile picture from the Account page
+- **🛡️ Same-city guard** — Origin and destination cannot be the same city: the form disables the matching city live and the API rejects it with a clear error
+- **🔤 Friendly form hints** — Shipment modes show plain-English labels (Surface *by land*, Express *fast*, Air Cargo *by air*), and the password field explains the 8-character minimum with a text-only strength indicator
 
 ---
 
@@ -546,6 +549,8 @@ curl -X POST http://127.0.0.1:5000/api/predict \
 - [x] **API keys & rate limiting** — Hashed per-user API keys (required on `POST /api/predict`) with per-key rate limiting
 - [x] **Plans & prediction quotas** — Free plan (50/month) with Pro upgrades (₹299/mo, ₹1,299/yr) for unlimited predictions
 - [x] **Model experiment lab** — Admin-runnable base/hybrid/stacking benchmarks (regression + classification) feeding the Model Comparison page
+- [x] **OWASP hardening** — CSRF tokens on every state-changing form, XSS-safe tracking, security headers (CSP, frame-deny, nosniff), hardened session cookies, and stale-session handling
+- [x] **Editable profiles** — Display name, company and avatar uploads from the Account page
 - [ ] **Expanded test coverage** — Add unit tests for `dtdc_model.py` and edge cases
 
 ---

@@ -40,6 +40,7 @@ def init_db() -> None:
         _migrate_api_key_columns(conn)
         _migrate_plan_columns(conn)
         _migrate_demo_column(conn)
+        _migrate_avatar_column(conn)
 
 
 def _migrate_created_at_columns(conn: sqlite3.Connection) -> None:
@@ -73,6 +74,16 @@ def _migrate_api_key_columns(conn: sqlite3.Connection) -> None:
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_hash "
         "ON users(api_key_hash)"
     )
+
+
+def _migrate_avatar_column(conn: sqlite3.Connection) -> None:
+    """Add an avatar column (small image data-URL) for profile pictures."""
+    columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(users)").fetchall()
+    }
+    if "avatar" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
 
 
 def _migrate_demo_column(conn: sqlite3.Connection) -> None:
@@ -310,6 +321,15 @@ def count_users() -> int:
         cur = conn.execute("SELECT COUNT(*) AS c FROM users")
         row = cur.fetchone()
         return int(row["c"]) if row else 0
+
+
+def update_user_profile(user_id: int, full_name: str, company: str, avatar: Optional[str] = None) -> None:
+    """Update a user's display name, company and avatar (data-URL or None)."""
+    with connection() as conn:
+        conn.execute(
+            "UPDATE users SET full_name = ?, company = ?, avatar = ? WHERE id = ?",
+            (full_name, company, avatar, user_id),
+        )
 
 
 def set_api_key(

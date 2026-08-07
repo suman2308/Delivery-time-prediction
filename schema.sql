@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
     api_key_hash TEXT UNIQUE,
     api_key_hint TEXT,
     api_key_enc TEXT,
+    avatar TEXT,
     -- Subscription plan ('basic' | 'pro_monthly' | 'pro_yearly') + usage quota
     plan TEXT NOT NULL DEFAULT 'basic',
     plan_expires_at TIMESTAMP,

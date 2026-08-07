@@ -334,6 +334,51 @@
     });
   })();
 
+  /* ── Same-city guard for origin/destination selects ────────────────────── */
+  (function initSameCityGuard() {
+    function sync(form) {
+      var origin = form.querySelector('[name="origin"]');
+      var dest = form.querySelector('[name="destination"]');
+      if (!origin || !dest) return;
+      var o = (origin.value || "").toLowerCase();
+      var d = (dest.value || "").toLowerCase();
+
+      // Disable the currently chosen origin in the destination dropdown and
+      // vice versa, so the same city can never be picked for both.
+      Array.prototype.forEach.call(dest.options, function (opt) {
+        opt.disabled = opt.value && opt.value.toLowerCase() === o;
+      });
+      Array.prototype.forEach.call(origin.options, function (opt) {
+        opt.disabled = opt.value && opt.value.toLowerCase() === d;
+      });
+
+      // If the values collided (e.g. after a change), reset the later one.
+      if (o && o === d) {
+        if (form._lastChanged === "origin") {
+          dest.value = "";
+        } else {
+          origin.value = "";
+        }
+      }
+    }
+
+    document.querySelectorAll("form[data-validate]").forEach(function (form) {
+      var origin = form.querySelector('[name="origin"]');
+      var dest = form.querySelector('[name="destination"]');
+      if (!origin || !dest) return;
+      form._lastChanged = "dest";
+      origin.addEventListener("change", function () {
+        form._lastChanged = "origin";
+        sync(form);
+      });
+      dest.addEventListener("change", function () {
+        form._lastChanged = "dest";
+        sync(form);
+      });
+      sync(form);
+    });
+  })();
+
   /* ── Demo-only forms: show a toast instead of submitting ───────────────── */
   (function initDemoForms() {
     document.querySelectorAll("form[data-demo]").forEach(function (form) {
@@ -431,24 +476,28 @@
     setMasked();
   })();
 
-  /* ── Password strength meter ───────────────────────────────────────────── */
+  /* ── Password strength (text only) ─────────────────────────────────────── */
   (function initPasswordStrength() {
     var input = document.getElementById("registerPassword");
-    var meter = document.getElementById("strengthMeter");
     var label = document.getElementById("strengthLabel");
-    if (!input || !meter) return;
+    if (!input || !label) return;
+    var DEFAULT_TEXT = "At least 8 characters";
     input.addEventListener("input", function () {
       var v = input.value;
+      if (!v) {
+        label.textContent = DEFAULT_TEXT;
+        label.className = "strength-label";
+        return;
+      }
       var score = 0;
       if (v.length >= 8) score++;
       if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++;
       if (/\d/.test(v)) score++;
       if (/[^A-Za-z0-9]/.test(v)) score++;
-      meter.setAttribute("data-level", String(score));
-      if (label) {
-        var names = ["Too weak", "Weak", "Fair", "Good", "Strong"];
-        label.textContent = v ? names[score] : "";
-      }
+      var names = ["Too weak", "Weak", "Fair", "Good", "Strong"];
+      var classes = ["is-too-weak", "is-weak", "is-fair", "is-good", "is-strong"];
+      label.textContent = "Password: " + names[score];
+      label.className = "strength-label " + classes[score];
     });
   })();
 
