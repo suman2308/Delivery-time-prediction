@@ -10,7 +10,10 @@
       <div style="font-family:var(--font-display);font-size:clamp(3.5rem,8vw,5.5rem);font-weight:700;line-height:1;letter-spacing:-0.03em;background:var(--brand-gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;margin:0.5rem 0 0.25rem;">
         {{ "%.2f"|format(predicted_days) }}
       </div>
-      <p class="text-muted" style="margin:0 0 1.5rem;">days &middot; origin to destination</p>
+      <p class="text-muted" style="margin:0 0 1rem;">days &middot; origin to destination</p>
+      <p class="text-sm" style="margin:0 0 1.5rem;">
+        Tracking ID: <code class="mono" style="font-weight:600;">{{ tracking_id }}</code>
+      </p>
       <div class="flex-center wrap gap-2">
         <span class="badge badge-success"><span class="dot"></span> Prediction Complete</span>
         <span class="badge badge-primary">{{ algorithm }} v{{ model_version }}</span>
@@ -179,9 +182,9 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         View Analytics
       </a>
-      <a class="btn btn-ghost btn-lg" href="{{ url_for('tracking') }}">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Track a Shipment
+      <a class="btn btn-ghost btn-lg" href="{{ url_for('tracking_lookup', tracking_id=tracking_id) }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Track this shipment
       </a>
       <button type="button" class="btn btn-outline btn-lg" data-print-report>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>

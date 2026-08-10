@@ -41,6 +41,8 @@ def init_db() -> None:
         _migrate_plan_columns(conn)
         _migrate_demo_column(conn)
         _migrate_avatar_column(conn)
+        _migrate_tracking_column(conn)
+        _migrate_prediction_user_column(conn)
 
 
 def _migrate_created_at_columns(conn: sqlite3.Connection) -> None:
@@ -97,6 +99,32 @@ def _migrate_demo_column(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE dtdc_predictions ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0"
         )
+
+
+def _migrate_tracking_column(conn: sqlite3.Connection) -> None:
+    """Add a per-prediction tracking ID so shipments can be looked up on the
+    tracking page against real audit records (not a simulation)."""
+    columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(dtdc_predictions)").fetchall()
+    }
+    if "tracking_id" not in columns:
+        conn.execute("ALTER TABLE dtdc_predictions ADD COLUMN tracking_id TEXT")
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_dtdc_predictions_tracking "
+        "ON dtdc_predictions(tracking_id)"
+    )
+
+
+def _migrate_prediction_user_column(conn: sqlite3.Connection) -> None:
+    """Link predictions to the account that made them so dashboards and
+    history can be scoped per user (analytics stays platform-wide + admin)."""
+    columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(dtdc_predictions)").fetchall()
+    }
+    if "user_id" not in columns:
+        conn.execute("ALTER TABLE dtdc_predictions ADD COLUMN user_id INTEGER")
 
 
 def _migrate_plan_columns(conn: sqlite3.Connection) -> None:
@@ -157,35 +185,6 @@ def count_orders() -> int:
         return int(row["c"]) if row else 0
 
 
-def fetch_orders_filtered(
-    traffic: Optional[str] = None,
-    weather: Optional[str] = None,
-    min_distance: Optional[float] = None,
-    max_distance: Optional[float] = None,
-    limit: int = 250,
-) -> list[sqlite3.Row]:
-    clauses: list[str] = []
-    params: list[Any] = []
-    if traffic:
-        clauses.append("traffic_level = ?")
-        params.append(traffic)
-    if weather:
-        clauses.append("weather = ?")
-        params.append(weather)
-    if min_distance is not None:
-        clauses.append("distance >= ?")
-        params.append(min_distance)
-    if max_distance is not None:
-        clauses.append("distance <= ?")
-        params.append(max_distance)
-    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    sql = f"SELECT * FROM orders{where} ORDER BY order_id DESC LIMIT ?"
-    params.append(limit)
-    with connection() as conn:
-        cur = conn.execute(sql, params)
-        return cur.fetchall()
-
-
 def insert_dtdc_prediction(
     origin: str,
     destination: str,
@@ -199,11 +198,15 @@ def insert_dtdc_prediction(
     predicted_days: float,
     model_version: str,
     is_demo: int = 0,
+    tracking_id: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> int:
     """Log a DTDC model prediction to the audit table.
 
     is_demo=1 marks admin demo-mode records so they are excluded from real
-    analytics by default.
+    analytics by default. tracking_id is the public lookup key used by the
+    shipment tracking page. user_id links the record to the account that
+    made it (NULL for anonymous public-demo predictions).
     """
     with connection() as conn:
         cur = conn.execute(
@@ -212,26 +215,49 @@ def insert_dtdc_prediction(
                 origin, destination, booking_weekday, mode,
                 nature_of_consignment, total_pieces, actual_weight,
                 volumetric_weight, chargeable_weight, predicted_days,
-                model_version, is_demo, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                model_version, is_demo, tracking_id, user_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
             (
                 origin, destination, booking_weekday, mode,
                 nature_of_consignment, total_pieces, actual_weight,
                 volumetric_weight, chargeable_weight, predicted_days,
-                model_version, is_demo,
+                model_version, is_demo, tracking_id, user_id,
             ),
         )
         return int(cur.lastrowid)
 
 
-def fetch_dtdc_predictions(limit: int = 5000, include_demo: bool = False) -> list[sqlite3.Row]:
+def get_prediction_by_tracking_id(tracking_id: str) -> Optional[sqlite3.Row]:
+    """Return the prediction audit record for a tracking ID, or None."""
+    with connection() as conn:
+        cur = conn.execute(
+            "SELECT * FROM dtdc_predictions WHERE tracking_id = ? COLLATE NOCASE",
+            (tracking_id,),
+        )
+        return cur.fetchone()
+
+
+def fetch_dtdc_predictions(
+    limit: int = 5000,
+    include_demo: bool = False,
+    user_id: Optional[int] = None,
+) -> list[sqlite3.Row]:
     """Fetch recent DTDC prediction audit records.
 
     Demo-mode records are excluded unless include_demo=True, so admin sample
-    data never skews real analytics.
+    data never skews real analytics. Pass user_id to scope results to one
+    account (personal dashboards / history); None returns everyone's.
     """
-    where = "" if include_demo else "WHERE is_demo = 0"
+    clauses: list[str] = []
+    params: list[Any] = []
+    if not include_demo:
+        clauses.append("is_demo = 0")
+    if user_id is not None:
+        clauses.append("user_id = ?")
+        params.append(user_id)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    params.append(limit)
     with connection() as conn:
         cur = conn.execute(
             f"""
@@ -240,19 +266,27 @@ def fetch_dtdc_predictions(limit: int = 5000, include_demo: bool = False) -> lis
             ORDER BY created_at DESC
             LIMIT ?
             """,
-            (limit,),
+            params,
         )
         return cur.fetchall()
 
 
-def count_dtdc_predictions(include_demo: bool = False) -> int:
+def count_dtdc_predictions(include_demo: bool = False, user_id: Optional[int] = None) -> int:
     """Return total number of DTDC predictions logged.
 
-    Demo-mode records are excluded unless include_demo=True.
+    Demo-mode records are excluded unless include_demo=True. Pass user_id to
+    count only one account's predictions.
     """
-    where = "" if include_demo else "WHERE is_demo = 0"
+    clauses: list[str] = []
+    params: list[Any] = []
+    if not include_demo:
+        clauses.append("is_demo = 0")
+    if user_id is not None:
+        clauses.append("user_id = ?")
+        params.append(user_id)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     with connection() as conn:
-        cur = conn.execute(f"SELECT COUNT(*) AS c FROM dtdc_predictions {where}")
+        cur = conn.execute(f"SELECT COUNT(*) AS c FROM dtdc_predictions {where}", params)
         row = cur.fetchone()
         return int(row["c"]) if row else 0
 
@@ -321,6 +355,85 @@ def count_users() -> int:
         cur = conn.execute("SELECT COUNT(*) AS c FROM users")
         row = cur.fetchone()
         return int(row["c"]) if row else 0
+
+
+def user_stats() -> dict:
+    """Admin overview stats about accounts and subscriptions.
+
+    Returns total users, the count per plan, users active in the last 30 days
+    (made at least one real prediction), and how many paid plans exist.
+    """
+    with connection() as conn:
+        cur = conn.execute(
+            "SELECT plan, COUNT(*) AS c FROM users GROUP BY plan"
+        )
+        by_plan = {row["plan"]: int(row["c"]) for row in cur.fetchall()}
+        cur = conn.execute(
+            """
+            SELECT COUNT(DISTINCT user_id) AS c
+            FROM dtdc_predictions
+            WHERE is_demo = 0
+              AND user_id IS NOT NULL
+              AND created_at >= datetime('now', '-30 days')
+            """
+        )
+        active = int(cur.fetchone()["c"])
+    total = by_plan.get("basic", 0) + by_plan.get("pro_monthly", 0) + by_plan.get("pro_yearly", 0)
+    paid = by_plan.get("pro_monthly", 0) + by_plan.get("pro_yearly", 0)
+    return {
+        "total": total,
+        "by_plan": by_plan,
+        "paid": paid,
+        "active_30d": active,
+    }
+
+
+def count_predictions_today() -> int:
+    """Number of real predictions made today (UTC)."""
+    with connection() as conn:
+        cur = conn.execute(
+            "SELECT COUNT(*) AS c FROM dtdc_predictions "
+            "WHERE is_demo = 0 AND date(created_at) = date('now')"
+        )
+        row = cur.fetchone()
+        return int(row["c"]) if row else 0
+
+
+def demo_stats() -> dict:
+    """Counts for the admin Demo Mode section."""
+    with connection() as conn:
+        cur = conn.execute(
+            "SELECT COUNT(*) AS c, COUNT(DISTINCT user_id) AS u "
+            "FROM dtdc_predictions WHERE is_demo = 1"
+        )
+        row = cur.fetchone()
+    return {
+        "rows": int(row["c"]) if row else 0,
+        "users": int(row["u"]) if row else 0,
+    }
+
+
+def reset_demo_data() -> int:
+    """Delete all demo-mode prediction rows; returns how many were removed."""
+    with connection() as conn:
+        cur = conn.execute("DELETE FROM dtdc_predictions WHERE is_demo = 1")
+        return cur.rowcount
+
+
+def all_users_with_usage() -> list[sqlite3.Row]:
+    """Every account joined with its total real prediction count, newest first."""
+    with connection() as conn:
+        cur = conn.execute(
+            """
+            SELECT u.id, u.full_name, u.email, u.company, u.plan,
+                   u.plan_expires_at, u.predictions_used, u.created_at,
+                   (SELECT COUNT(*) FROM dtdc_predictions p
+                     WHERE p.user_id = u.id AND p.is_demo = 0) AS total_predictions
+            FROM users u
+            ORDER BY u.created_at DESC
+            """
+        )
+        return cur.fetchall()
 
 
 def update_user_profile(user_id: int, full_name: str, company: str, avatar: Optional[str] = None) -> None:

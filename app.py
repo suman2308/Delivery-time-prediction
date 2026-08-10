@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
+import math
 import os
 import secrets
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache, wraps
 from urllib.parse import urlsplit
+
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from cryptography.fernet import Fernet
 
@@ -22,6 +27,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     session,
     url_for,
 )
@@ -36,6 +42,13 @@ from dtdc_model import DTDCPredictor, MODEL_ALGORITHM, MODEL_VERSION
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
+
+# Behind a trusted reverse proxy (Render / nginx), honour the real client IP
+# so rate limiting keys per visitor instead of per proxy. Enabled explicitly
+# via TRUST_PROXY=1 — never trust X-Forwarded-* when the app is directly
+# exposed (a client could spoof the header to dodge rate limits).
+if os.environ.get("TRUST_PROXY", "0") == "1":
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 # ---------------------------------------------------------------------------
 # Session cookie hardening (OWASP): HttpOnly, SameSite, Secure behind proxy
@@ -83,6 +96,27 @@ def _csrf_protect():
         # Referer (open-redirect defence, consistent with login).
         return redirect(_safe_next(request.referrer))
     return None
+
+# ---------------------------------------------------------------------------
+# Admin session wall: the admin console is a separate application. A
+# standalone admin session is confined to admin endpoints — every public
+# page (/, /predict, /about, …) bounces back to /admin. Only the assets the
+# console itself needs (static files, health/metrics probes, logout, the
+# admin login route) remain reachable.
+# ---------------------------------------------------------------------------
+@app.before_request
+def _wall_admin_from_public_site():
+    if not _is_admin_session():
+        return None
+    endpoint = request.endpoint
+    if endpoint is None:
+        return None  # unknown path -> the 404 handler renders
+    if endpoint in _ADMIN_SESSION_ENDPOINTS or endpoint in (
+        "static", "health", "metrics_json", "logout", "admin_login",
+    ):
+        return None
+    return redirect(url_for("admin"))
+
 
 # ---------------------------------------------------------------------------
 # Rate limiting
@@ -178,7 +212,37 @@ def _set_security_headers(response):
         "connect-src 'self'; "
         "frame-ancestors 'none'"
     )
+    # Private pages must never be cached by shared browsers/proxies.
+    if request.endpoint != "static" and (session.get("user_id") or session.get("is_admin")):
+        response.headers["Cache-Control"] = "no-store"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Security audit log (never logs passwords, tokens or API keys)
+# ---------------------------------------------------------------------------
+def _audit(event: str, **fields) -> None:
+    """Emit a security-relevant audit line via the app logger (captured by
+    gunicorn/container logs). Sensitive values must never be passed here.
+
+    WARNING level is intentional: Flask's default logger level suppresses
+    INFO in production (debug=False), which would silently drop audit lines.
+    """
+    detail = " ".join(f"{k}={v}" for k, v in fields.items() if v is not None)
+    app.logger.warning("AUDIT %s %s", event, detail)
+
+
+# Warn loudly when the demo admin credentials are in use outside local dev.
+if (
+    config.ADMIN_LOGIN_PASSWORD == "00000000"
+    and config.ADMIN_LOGIN_EMAIL == "admin@gmail.com"
+    and os.environ.get("FLASK_DEBUG") != "1"
+):
+    app.logger.warning(
+        "AUDIT config: default admin credentials in use "
+        "(admin@gmail.com / 00000000). Set ADMIN_LOGIN_EMAIL and "
+        "ADMIN_LOGIN_PASSWORD env vars before deploying publicly."
+    )
 
 # ---------------------------------------------------------------------------
 # DTDC model - initialised once at module load (singleton guarantees one load)
@@ -279,19 +343,59 @@ def _current_user():
     return db.get_user_by_id(int(user_id))
 
 
+def _active_nav_for(endpoint: str) -> str:
+    """Map the current Flask endpoint to a navbar section so the active link
+    gets its underline indicator. Server-side (single source of truth): a page
+    like /dashboard highlights "Analytics" even though its URL differs.
+
+    Pages without a navbar entry (e.g. /plans, /pricing, /result) intentionally
+    leave no item highlighted.
+    """
+    mapping = {
+        "index": "home",
+        "predict_page": "predict",
+        "predict_form": "predict",
+        "tracking": "tracking",
+        "dashboard": "dashboard",
+        "model_comparison": "models",
+        "api_docs": "api",
+        "about": "about",
+        "contact": "contact",
+        "admin": "admin",
+        "admin_login": "admin",
+        "admin_demo": "admin",
+        "admin_run_experiments": "admin",
+        "admin_experiment_status": "admin",
+        # Analytics lives under the Admin dropdown now (no separate nav item).
+        "analytics": "admin",
+    }
+    return mapping.get(endpoint, "")
+
+
+def _is_admin_session() -> bool:
+    """True when the session holds a standalone admin login (no account)."""
+    return bool(session.get("is_admin"))
+
+
 @app.context_processor
 def _inject_auth():
-    """Expose the current user, an admin flag, and a cache-busting asset version
-    to templates.
+    """Expose the current user, an admin flag, a cache-busting asset version,
+    and the active nav section to templates.
+
+    The admin flag is ONLY the standalone admin session (/admin-login): a
+    registered account is always a regular user, so the user panel and the
+    admin console never mix in the same session.
 
     Plan status is computed only on the routes that need it (account/pricing)
     rather than on every request."""
     user = _current_user()
-    is_admin = bool(user and user["email"].lower() in config.ADMIN_EMAILS)
+    is_admin = _is_admin_session()
     return {
         "current_user": user,
         "is_admin": is_admin,
+        "demo_mode": bool(session.get("demo_mode")),
         "static_version": _static_version(),
+        "active_nav": _active_nav_for(request.endpoint or ""),
     }
 
 
@@ -307,16 +411,43 @@ def _static_version() -> str:
     return str(int(newest)) if newest else "1"
 
 
+# Endpoints a standalone admin session (no account row) is allowed to visit.
+# Everything else behind @login_required assumes a real user, so standalone
+# admins are routed to the admin panel instead of crashing on user["id"].
+# admin_login is NOT listed: it self-handles the flag (redirects to /admin)
+# and is not itself behind login_required.
+_ADMIN_SESSION_ENDPOINTS = frozenset({
+    "admin",
+    "admin_demo",
+    "admin_demo_reset",
+    "admin_run_experiments",
+    "admin_experiment_status",
+    "analytics",
+})
+
+
 def login_required(view):
     """Redirect anonymous visitors to the login page, remembering where they
     were headed so they can be returned after signing in.
 
     Also handles stale sessions: a session cookie may still carry a user_id
     for an account that was deleted or whose DB row was reset. Such sessions
-    are cleared and sent to login instead of crashing downstream on None."""
+    are cleared and sent to login instead of crashing downstream on None.
+
+    A standalone admin login (session["is_admin"]) satisfies the gate too,
+    but only on admin-gated endpoints — user pages like /account assume an
+    account row and must not be reached by a flag-only session."""
     @wraps(view)
     def wrapped(*args, **kwargs):
+        if _is_admin_session():
+            if request.endpoint in _ADMIN_SESSION_ENDPOINTS:
+                return view(*args, **kwargs)
+            return redirect(url_for("admin"))
         if session.get("user_id") is None:
+            # Admin-only endpoints send anonymous visitors to the standalone
+            # admin login, not the user login.
+            if request.endpoint in _ADMIN_SESSION_ENDPOINTS:
+                return redirect(url_for("admin_login", next=request.path))
             return redirect(url_for("login", next=request.path))
         if _current_user() is None:
             session.clear()
@@ -328,16 +459,58 @@ def login_required(view):
 
 
 def admin_required(view):
-    """Restrict a view to accounts whose email is in config.ADMIN_EMAILS."""
+    """Restrict a view to a standalone admin session (via /admin-login).
+
+    Registered accounts are never admins: hitting an admin route while
+    logged in as a regular user bounces them to their dashboard."""
     @wraps(view)
     def wrapped(*args, **kwargs):
+        if _is_admin_session():
+            return view(*args, **kwargs)
         user = _current_user()
-        if not user or user["email"].lower() not in config.ADMIN_EMAILS:
-            flash("Admin access required.", "error")
+        flash("Admin access required.", "error")
+        if user:
             return redirect(url_for("dashboard"))
-        return view(*args, **kwargs)
+        # No session at all: point at the standalone admin login, and remember
+        # where they were headed so the console opens the right section.
+        return redirect(url_for("admin_login", next=request.path))
 
     return wrapped
+
+
+@app.route("/admin-login", methods=["GET", "POST"])
+@limiter.limit(config.LOGIN_RATE_LIMIT, methods=["POST"], override_defaults=False)
+def admin_login():
+    """Standalone admin login (footer link) using the fixed credentials from
+    config.ADMIN_LOGIN_EMAIL / ADMIN_LOGIN_PASSWORD. Grants a session flag
+    that unlocks every admin-gated route without needing a user account."""
+    if _is_admin_session():
+        return redirect(url_for("admin"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        # Constant-time comparison (consistent with the CSRF check) so the
+        # admin credentials aren't a timing side channel.
+        if (
+            secrets.compare_digest(email, config.ADMIN_LOGIN_EMAIL.lower())
+            and secrets.compare_digest(password, config.ADMIN_LOGIN_PASSWORD)
+        ):
+            # A logged-in regular user switching to the admin console gets a
+            # clean session — same identity-swap pattern as login()/register().
+            _audit("admin_login_success", ip=request.remote_addr)
+            session.clear()  # prevent session fixation
+            session["is_admin"] = True
+            session.permanent = True
+            flash("Welcome back, Admin!", "success")
+            # Honor a safe ?next= (e.g. an admin section the visitor was
+            # headed to); otherwise open the console overview.
+            target = request.args.get("next")
+            return redirect(_safe_next(target) if target else url_for("admin"))
+        _audit("admin_login_failed", email=email, ip=request.remote_addr)
+        flash("Invalid admin credentials.", "error")
+
+    return render_template("admin_login.html")
 
 
 # Precomputed hash so the "no such user" path takes comparable time to a real
@@ -348,19 +521,23 @@ _DUMMY_PASSWORD_HASH = generate_password_hash(
 
 
 def _safe_next(target: str | None) -> str:
-    """Return target only if it is a safe, same-site path (no open redirect)."""
+    """Return target only if it is a safe, same-site path (no open redirect).
+
+    When no target is given (plain login, CSRF fallback), users land on the
+    Predict page — the core action — rather than a dashboard.
+    """
     if not target:
-        return url_for("dashboard")
+        return url_for("predict_page")
     # Reject anything with a backslash — browsers normalise `\` to `/`, so
     # `/\\evil.com` would otherwise become `//evil.com` (open redirect).
     if "\\" in target:
-        return url_for("dashboard")
+        return url_for("predict_page")
     try:
         parts = urlsplit(target)
     except ValueError:
-        return url_for("dashboard")
+        return url_for("predict_page")
     if parts.scheme or parts.netloc or not target.startswith("/"):
-        return url_for("dashboard")
+        return url_for("predict_page")
     return target
 
 
@@ -385,11 +562,13 @@ def login():
             password_ok = False
             check_password_hash(_DUMMY_PASSWORD_HASH, password)
         if password_ok:
+            _audit("login_success", user_id=user["id"], ip=request.remote_addr)
             session.clear()  # prevent session fixation
             session["user_id"] = user["id"]
             session.permanent = True
             flash(f"Welcome back, {user['full_name']}!", "success")
             return redirect(_safe_next(request.form.get("next")))
+        _audit("login_failed", email=email, ip=request.remote_addr)
         flash("Invalid email or password.", "error")
 
     return render_template(
@@ -430,6 +609,7 @@ def register():
             except ValueError as exc:
                 flash(str(exc), "error")
             else:
+                _audit("register", user_id=user_id, email=email, ip=request.remote_addr)
                 session.clear()  # prevent session fixation
                 session["user_id"] = user_id
                 session.permanent = True
@@ -466,9 +646,138 @@ def about():
     return render_template("about.html")
 
 
-@app.route("/tracking")
+def _generate_tracking_id() -> str:
+    """Create a short, human-friendly tracking ID (e.g. SCP-4F2A9B1C).
+
+    Re-checks the DB so a (theoretically rare) hex collision can never raise
+    an IntegrityError on insert.
+    """
+    while True:
+        tid = f"SCP-{secrets.token_hex(4).upper()}"
+        if db.get_prediction_by_tracking_id(tid) is None:
+            return tid
+
+
+def _recent_tracked():
+    """Recent trackable predictions + their computed statuses (shared by the
+    tracking landing page and deep-link lookups)."""
+    recent = [
+        r for r in db.fetch_dtdc_predictions(limit=8) if r["tracking_id"]
+    ][:5]
+    recent_status = {
+        r["id"]: _tracking_timeline(r) for r in recent
+    }
+    return recent, recent_status
+
+
+def _tracking_timeline(row):
+    """Build a real tracking timeline from a stored prediction record.
+
+    Every stage is anchored to the record's created_at and scaled by the
+    predicted duration, so the status reflects genuine elapsed time for that
+    exact prediction — no simulation, no random ETAs.
+    """
+    created = None
+    try:
+        created = datetime.strptime(
+            row["created_at"], "%Y-%m-%d %H:%M:%S"
+        ).replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        created = None
+    predicted_days = float(row["predicted_days"] or 1.0) or 1.0
+
+    now = datetime.now(timezone.utc)
+    total_seconds = predicted_days * 86400.0
+    elapsed = max((now - created).total_seconds(), 0.0) if created else 0.0
+    progress = min(100.0, elapsed / total_seconds * 100.0)
+
+    stages = [
+        (0.00, "Shipment booked", "Label created and shipment registered in the courier network.", "Booked", "badge-info"),
+        (0.15, "Picked up by courier", "Consignment collected from origin hub and scanned into transit.", "Picked Up", "badge-primary"),
+        (0.45, "In transit", "Moving through the route network — currently at the regional sorting facility.", "In Transit", "badge-primary"),
+        (0.85, "Out for delivery", "Assigned to a delivery agent for final-mile dispatch.", "Out for Delivery", "badge-warning"),
+        (1.00, "Delivered", "Consignment handed over and proof of delivery captured.", "Delivered", "badge-success"),
+    ]
+
+    active_index = next(
+        (i for i, (frac, *_rest) in enumerate(stages) if elapsed < frac * total_seconds),
+        None,
+    )
+    items = []
+    last_done = stages[0]
+    for i, (frac, title, text, short, badge) in enumerate(stages):
+        done = elapsed >= frac * total_seconds
+        if done:
+            last_done = stages[i]
+        at = created + timedelta(seconds=frac * total_seconds) if created else None
+        items.append({
+            "title": title,
+            "text": text,
+            "time": at.astimezone().strftime("%b %d, %H:%M") if at else "—",
+            "state": "done" if done else ("active" if i == active_index else ""),
+            "badge": badge,
+            "label": short,
+        })
+
+    return {
+        "items": items,
+        "progress": round(progress, 1),
+        "status": last_done[3],
+        "status_badge": last_done[4],
+        "eta": (
+            (created + timedelta(days=predicted_days)).astimezone().strftime("%a, %d %b")
+            if created else "—"
+        ),
+    }
+
+
+@app.route("/tracking", methods=["GET", "POST"])
 def tracking():
-    return render_template("tracking.html")
+    recent, recent_status = _recent_tracked()
+    error = None
+
+    if request.method == "POST":
+        tid = request.form.get("tracking_id", "").strip().upper()
+        if not tid:
+            error = "Please enter a tracking ID."
+        else:
+            row = db.get_prediction_by_tracking_id(tid)
+            if row:
+                return redirect(url_for("tracking_lookup", tracking_id=tid))
+            error = f"No shipment found with ID {tid}. Check the ID and try again."
+            return (
+                render_template(
+                    "tracking.html", recent=recent, recent_status=recent_status,
+                    error=error, tracked=None, timeline=None,
+                ),
+                404,
+            )
+
+    return render_template(
+        "tracking.html", recent=recent, recent_status=recent_status,
+        error=error, tracked=None, timeline=None,
+    )
+
+
+@app.route("/tracking/<tracking_id>")
+def tracking_lookup(tracking_id: str):
+    """Look up a real prediction record by its tracking ID and render its
+    computed journey timeline (shareable deep link)."""
+    recent, recent_status = _recent_tracked()
+    row = db.get_prediction_by_tracking_id(tracking_id.strip().upper())
+    if not row:
+        return (
+            render_template(
+                "tracking.html", recent=recent, recent_status=recent_status,
+                error=f"No shipment found with ID {tracking_id}.",
+                tracked=None, timeline=None,
+            ),
+            404,
+        )
+    return render_template(
+        "tracking.html", recent=recent, recent_status=recent_status,
+        error=None, tracked=row, timeline=_tracking_timeline(row),
+    )
 
 
 @app.route("/pricing")
@@ -626,59 +935,12 @@ def api_docs():
 
 @app.route("/analytics")
 @login_required
+@admin_required
 def analytics():
-    """Deep-dive analytics: KPIs, chart panels, recent predictions, usage
-    trend and system activity."""
-    ensure_app_ready()
-    try:
-        meta = _dtdc_predictor.meta
-        m = meta.get("metrics", {})
-    except (FileNotFoundError, RuntimeError):
-        return render_template(
-            "analytics.html",
-            error="DTDC model not found. Train with ``python -m dtdc_model train``",
-            plots=None,
-            kpis=None,
-            recent=None,
-            activity=None,
-        ), 503
-
-    demo_mode = bool(session.get("demo_mode"))
-    pred_count = db.count_dtdc_predictions(include_demo=demo_mode)
-    pred_rows = db.fetch_dtdc_predictions(limit=10000, include_demo=demo_mode)
-    if pred_rows:
-        pdf = db.rows_to_dataframe(pred_rows)
-        avg_pred = float(pdf["predicted_days"].mean())
-    else:
-        avg_pred = 0.0
-
-    kpis = {
-        "avg_predicted_days": round(avg_pred, 2),
-        "model_mae": m.get("mae_days", 0),
-        "model_rmse": m.get("rmse_days", 0),
-        "model_r2": m.get("r2", 0),
-        "prediction_count": pred_count,
-        "model_version": meta.get("model_version", ""),
-        "algorithm": _friendly_algorithm(meta.get("algorithm", "")),
-        "dataset_rows": meta.get("dataset_rows", 0),
-        "training_date": (meta.get("training_date") or "")[:10],
-        "user_count": db.count_users(),
-    }
-
-    p1 = charts.plot_mode_impact()
-    p2 = charts.plot_prediction_distribution()
-    p3 = charts.plot_top_routes()
-    plots = {
-        "mode_impact": os.path.basename(p1),
-        "distribution": os.path.basename(p2),
-        "routes": os.path.basename(p3),
-    }
-    recent = db.fetch_dtdc_predictions(limit=8, include_demo=demo_mode)
-    activity = _build_activity_feed(pred_count)
-    return render_template(
-        "analytics.html", plots=plots, error=None, kpis=kpis,
-        recent=recent, activity=activity, demo_mode=demo_mode,
-    )
+    """Redirect to the Admin Console's Analytics tab — the single admin
+    surface. The old standalone analytics page was removed when analytics
+    moved under the admin panel; this route just keeps old links working."""
+    return redirect(url_for("admin", tab="analytics"))
 
 
 def _build_activity_feed(prediction_count: int) -> list[dict]:
@@ -750,52 +1012,56 @@ def _parse_dtdc_input(values):
 
     Returns keyword arguments suitable for DTDCPredictor.predict().
     Raises ValueError on invalid input.
-    """
-    origin = str(values.get("origin", "")).strip()
-    destination = str(values.get("destination", "")).strip()
-    booking_weekday = str(values.get("booking_weekday", "")).strip()
-    mode = str(values.get("mode", "")).strip()
-    nature_of_consignment = str(values.get("nature_of_consignment", "")).strip()
 
-    if not origin:
-        raise ValueError("origin is required.")
-    if not destination:
-        raise ValueError("destination is required.")
-    if origin.lower() == destination.lower():
+    Validation is defensive: every string is length-capped (prevents DB bloat
+    and render abuse) and every number must be finite and within sane bounds
+    (rejects NaN/Inf that would otherwise crash the model or the SQLite
+    integer column with a 500).
+    """
+    text_fields = {
+        "origin": "origin",
+        "destination": "destination",
+        "booking_weekday": "booking_weekday",
+        "mode": "mode",
+        "nature_of_consignment": "nature_of_consignment",
+    }
+    parsed: dict = {}
+    for key, label in text_fields.items():
+        value = str(values.get(key, "")).strip()
+        if not value:
+            raise ValueError(f"{label} is required.")
+        if len(value) > config.MAX_TEXT_LEN:
+            raise ValueError(
+                f"{label} is too long (max {config.MAX_TEXT_LEN} characters)."
+            )
+        parsed[key] = value
+
+    if parsed["origin"].lower() == parsed["destination"].lower():
         raise ValueError("Origin and destination cannot be the same city.")
-    if not booking_weekday:
-        raise ValueError("booking_weekday is required.")
-    if not mode:
-        raise ValueError("mode is required.")
-    if not nature_of_consignment:
-        raise ValueError("nature_of_consignment is required.")
 
     try:
         total_pieces = int(values.get("total_pieces", ""))
     except (TypeError, ValueError):
         raise ValueError("total_pieces must be a valid integer.")
-    if total_pieces <= 0:
-        raise ValueError("total_pieces must be positive.")
+    if not 0 < total_pieces <= config.MAX_TOTAL_PIECES:
+        raise ValueError(
+            f"total_pieces must be between 1 and {config.MAX_TOTAL_PIECES}."
+        )
 
     for name in ("actual_weight", "volumetric_weight", "chargeable_weight"):
         try:
             val = float(values.get(name, ""))
         except (TypeError, ValueError):
             raise ValueError(f"{name} must be a valid number.")
-        if val <= 0:
-            raise ValueError(f"{name} must be positive.")
+        # math.isfinite rejects NaN and +/-Inf; the bounds stop absurd values.
+        if not math.isfinite(val) or val <= 0 or val > config.MAX_WEIGHT:
+            raise ValueError(
+                f"{name} must be a positive number up to {config.MAX_WEIGHT:g}."
+            )
+        parsed[name] = val
 
-    return {
-        "origin": origin,
-        "destination": destination,
-        "booking_weekday": booking_weekday,
-        "mode": mode,
-        "nature_of_consignment": nature_of_consignment,
-        "total_pieces": total_pieces,
-        "actual_weight": float(values.get("actual_weight", 0)),
-        "volumetric_weight": float(values.get("volumetric_weight", 0)),
-        "chargeable_weight": float(values.get("chargeable_weight", 0)),
-    }
+    parsed["total_pieces"] = total_pieces
+    return parsed
 
 
 def _quota_error_template(source):
@@ -836,7 +1102,9 @@ def predict_form():
             if not allowed:
                 return _quota_error_template(source)
 
-        # Log prediction to audit table
+        # Log prediction to audit table (tracking ID makes it look-up-able;
+        # user_id links it to the account for personal history).
+        tracking_id = _generate_tracking_id()
         db.insert_dtdc_prediction(
             origin=kwargs["origin"],
             destination=kwargs["destination"],
@@ -849,6 +1117,8 @@ def predict_form():
             chargeable_weight=kwargs["chargeable_weight"],
             predicted_days=result.predicted_days,
             model_version=result.model_version,
+            tracking_id=tracking_id,
+            user_id=user["id"] if user else None,
         )
 
         # Load model metadata for result template context
@@ -858,6 +1128,7 @@ def predict_form():
 
         return render_template(
             "result.html",
+            tracking_id=tracking_id,
             predicted_days=result.predicted_days,
             origin=kwargs["origin"],
             destination=kwargs["destination"],
@@ -873,7 +1144,8 @@ def predict_form():
             model_mae=m.get("mae_days", 0),
             dataset_rows=dataset_rows,
         )
-    except (ValueError, FileNotFoundError, RuntimeError) as exc:
+    except ValueError as exc:
+        # Validation errors are safe to show verbatim (they carry no internals).
         source = request.form.get("_source")
         if source == "demo":
             return render_template(
@@ -884,6 +1156,21 @@ def predict_form():
                 "predict.html", metrics=_load_metrics(), error=str(exc), source="predict"
             ), 400
         return render_template("index.html", metrics=_load_metrics(), error=str(exc)), 400
+    except (FileNotFoundError, RuntimeError) as exc:
+        # Model/plumbing failures can embed filesystem paths — log the detail
+        # server-side and show a safe generic message to the user.
+        app.logger.error("Prediction failed: %s", exc)
+        generic = "The prediction model is temporarily unavailable. Please try again later."
+        source = request.form.get("_source")
+        if source == "demo":
+            return render_template(
+                "demo.html", metrics=_load_metrics(), error=generic, source="demo"
+            ), 503
+        if source == "predict":
+            return render_template(
+                "predict.html", metrics=_load_metrics(), error=generic, source="predict"
+            ), 503
+        return render_template("index.html", metrics=_load_metrics(), error=generic), 503
 
 
 @app.route("/api/predict", methods=["POST"])
@@ -928,7 +1215,8 @@ def predict_api():
     try:
         result = _dtdc_predictor.predict(**kwargs)
 
-        # Log prediction to audit table
+        # Log prediction to audit table (tracking ID + owning account)
+        tracking_id = _generate_tracking_id()
         db.insert_dtdc_prediction(
             origin=kwargs["origin"],
             destination=kwargs["destination"],
@@ -941,9 +1229,14 @@ def predict_api():
             chargeable_weight=kwargs["chargeable_weight"],
             predicted_days=result.predicted_days,
             model_version=result.model_version,
+            tracking_id=tracking_id,
+            user_id=api_user["id"],
         )
-    except (ValueError, FileNotFoundError, RuntimeError) as exc:
+    except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    except (FileNotFoundError, RuntimeError) as exc:
+        app.logger.error("API prediction failed: %s", exc)
+        return jsonify({"error": "The prediction model is temporarily unavailable."}), 503
 
     allowed, quota_err = db.consume_prediction(api_user["id"])
     if not allowed:
@@ -962,6 +1255,7 @@ def predict_api():
             "predicted_time_days": result.predicted_days,
             "model_version": result.model_version,
             "algorithm": result.algorithm,
+            "tracking_id": tracking_id,
         }
     )
 
@@ -970,30 +1264,170 @@ def predict_api():
 @login_required
 @admin_required
 def admin():
+    """Admin console with sidebar tabs: Overview, Demo Mode, Users & Plans,
+    Analytics, System & ML. Everything is computed server-side per tab."""
     ensure_app_ready()
-    traffic = request.args.get("traffic") or None
-    weather = request.args.get("weather") or None
-    min_d = request.args.get("min_distance")
-    max_d = request.args.get("max_distance")
-    min_distance = float(min_d) if min_d not in (None, "") else None
-    max_distance = float(max_d) if max_d not in (None, "") else None
+    demo_mode = bool(session.get("demo_mode"))
+    tab = request.args.get("tab", "overview")
+    if tab not in ("overview", "demo", "users", "analytics", "system"):
+        tab = "overview"
 
-    rows = db.fetch_orders_filtered(
-        traffic=traffic,
-        weather=weather,
-        min_distance=min_distance,
-        max_distance=max_distance,
-        limit=250,
+    # Model metadata (used by Overview, Analytics, System & ML)
+    model_error = None
+    meta = {}
+    try:
+        meta = _dtdc_predictor.meta
+    except (FileNotFoundError, RuntimeError) as exc:
+        model_error = str(exc)
+
+    context = {
+        "tab": tab,
+        "demo_mode": demo_mode,
+        "model_error": model_error,
+        "model_meta": meta,
+    }
+
+    # ── 1. Overview ────────────────────────────────────────────────────────
+    if tab == "overview":
+        users = db.user_stats()
+        context.update({
+            "users": users,
+            "predictions_today": db.count_predictions_today(),
+            "total_predictions": db.count_dtdc_predictions(include_demo=demo_mode),
+            "demo_stats": db.demo_stats(),
+            "alerts": _admin_alerts(demo_mode, users),
+        })
+
+    # ── 2. Demo Mode ───────────────────────────────────────────────────────
+    elif tab == "demo":
+        context["demo_stats"] = db.demo_stats()
+
+    # ── 3. Users & Plans ───────────────────────────────────────────────────
+    elif tab == "users":
+        context["users_list"] = db.all_users_with_usage()
+        context["plan_stats"] = db.user_stats()
+        context["plan_limits"] = {
+            plan: config.plan_limit(plan) for plan in config.PLANS
+        }
+
+    # ── 4. Analytics (platform-wide, same data as /analytics) ──────────────
+    elif tab == "analytics":
+        m = meta.get("metrics", {})
+        pred_count = db.count_dtdc_predictions(include_demo=demo_mode)
+        pred_rows = db.fetch_dtdc_predictions(limit=10000, include_demo=demo_mode)
+        avg_pred = (
+            float(db.rows_to_dataframe(pred_rows)["predicted_days"].mean())
+            if pred_rows else 0.0
+        )
+        context.update({
+            "kpis": {
+                "avg_predicted_days": round(avg_pred, 2),
+                "model_mae": m.get("mae_days", 0),
+                "model_rmse": m.get("rmse_days", 0),
+                "model_r2": m.get("r2", 0),
+                "prediction_count": pred_count,
+                "model_version": meta.get("model_version", ""),
+                "algorithm": _friendly_algorithm(meta.get("algorithm", "")),
+                "dataset_rows": meta.get("dataset_rows", 0),
+                "training_date": (meta.get("training_date") or "")[:10],
+                "user_count": db.count_users(),
+            },
+            "plots": {
+                "mode_impact": os.path.basename(charts.plot_mode_impact()),
+                "distribution": os.path.basename(charts.plot_prediction_distribution()),
+                "routes": os.path.basename(charts.plot_top_routes()),
+            },
+            "recent": db.fetch_dtdc_predictions(limit=8, include_demo=demo_mode),
+            "activity": _build_activity_feed(pred_count),
+        })
+
+    # ── 5. System & ML ─────────────────────────────────────────────────────
+    elif tab == "system":
+        context["system"] = _admin_system_info(meta, model_error)
+
+    return render_template("admin.html", **context)
+
+
+def _admin_alerts(demo_mode: bool, users: dict) -> list[dict]:
+    """Quick Alerts for the Overview tab — real signals only."""
+    alerts = []
+    if demo_mode:
+        alerts.append({"level": "warn", "title": "Demo mode is ON",
+                       "body": "Charts and analytics currently include sample data."})
+    if users["total"] == 0:
+        alerts.append({"level": "info", "title": "No accounts yet",
+                       "body": "Register an account to start using the platform."})
+    else:
+        active = users["active_30d"]
+        ratio = active / users["total"]
+        if ratio < 0.2:
+            alerts.append({"level": "info", "title": "Low engagement",
+                           "body": f"Only {active} of {users['total']} users active in 30 days."})
+    if users["paid"] == 0 and users["total"] > 0:
+        alerts.append({"level": "info", "title": "No paid plans",
+                       "body": "All accounts are on the free plan — consider promoting Pro."})
+    if not alerts:
+        alerts.append({"level": "ok", "title": "All good",
+                       "body": "No issues detected across the platform."})
+    return alerts
+
+
+def _admin_system_info(meta: dict, model_error: str | None) -> dict:
+    """System & ML tab: model, API, server and live inference stats."""
+    import platform
+    import time as _time
+
+    # DB writability probe (server health)
+    db_ok = True
+    db_error = None
+    try:
+        with db.connection() as conn:
+            conn.execute("SELECT 1")
+    except Exception as exc:  # pragma: no cover - environment dependent
+        db_ok = False
+        db_error = str(exc)
+
+    # Live inference latency: warm the pipeline (first call pays lazy-load
+    # cost), then time a real prediction.
+    latency_ms = None
+    _sample_pred = dict(
+        origin="Mumbai", destination="Pune", booking_weekday="Monday",
+        mode="Surface", nature_of_consignment="Dox",
+        total_pieces=1, actual_weight=0.5,
+        volumetric_weight=0.8, chargeable_weight=0.5,
     )
-    return render_template(
-        "admin.html",
-        rows=rows,
-        traffic=traffic or "",
-        weather=weather or "",
-        min_distance=min_d or "",
-        max_distance=max_d or "",
-        demo_mode=bool(session.get("demo_mode")),
-    )
+    try:
+        _dtdc_predictor.predict(**_sample_pred)  # warm-up
+        t0 = _time.perf_counter()
+        _dtdc_predictor.predict(**_sample_pred)
+        latency_ms = round((_time.perf_counter() - t0) * 1000, 3)
+    except Exception:
+        latency_ms = None
+
+    model_ok = model_error is None
+    m = meta.get("metrics", {}) if meta else {}
+    return {
+        "model": {
+            "ok": model_ok,
+            "error": model_error,
+            "version": meta.get("model_version", "—") if meta else "—",
+            "algorithm": _friendly_algorithm(meta.get("algorithm", "")) if meta else "—",
+            "training_date": (meta.get("training_date") or "—")[:10] if meta else "—",
+            "dataset_rows": meta.get("dataset_rows", 0) if meta else 0,
+            "mae": m.get("mae_days", 0),
+            "rmse": m.get("rmse_days", 0),
+            "r2": m.get("r2", 0),
+        },
+        "api": {"ok": db_ok, "error": db_error, "healthy": model_ok and db_ok},
+        "server": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "db_path": config.DATABASE_PATH,
+            "db_ok": db_ok,
+            "db_error": db_error,
+            "latency_ms": latency_ms,
+        },
+    }
 
 
 @app.route("/admin/demo", methods=["POST"])
@@ -1004,14 +1438,27 @@ def admin_demo():
     and charts populate instantly. Demo rows are flagged is_demo=1 and are
     excluded from real analytics unless demo mode is active."""
     if request.form.get("mode") == "off":
+        _audit("demo_mode_off", ip=request.remote_addr)
         session["demo_mode"] = False
         flash("Demo mode turned off — real analytics restored.", "info")
-        return redirect(url_for("admin"))
+        return redirect(url_for("admin", tab="demo"))
 
+    _audit("demo_mode_on", ip=request.remote_addr)
     session["demo_mode"] = True
     _seed_demo_predictions()
     flash("Demo mode active — sample predictions, charts and activity loaded.", "success")
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin", tab="demo"))
+
+
+@app.route("/admin/demo/reset", methods=["POST"])
+@login_required
+@admin_required
+def admin_demo_reset():
+    """Delete all demo-mode prediction rows (Demo Mode tab → Reset demo data)."""
+    removed = db.reset_demo_data()
+    _audit("demo_reset", removed=removed, ip=request.remote_addr)
+    flash(f"Demo data cleared — {removed} sample prediction(s) removed.", "info")
+    return redirect(url_for("admin", tab="demo"))
 
 
 def _seed_demo_predictions(count: int = 24) -> None:
@@ -1059,6 +1506,7 @@ def admin_run_experiments():
     /admin/experiments/status."""
     scope = request.form.get("scope", "smoke")
     if scope not in te.SCOPES:
+        _audit("experiment_unknown_scope", scope=scope, ip=request.remote_addr)
         flash(f"Unknown scope: {scope}", "error")
         return redirect(url_for("admin"))
 
@@ -1090,6 +1538,7 @@ def admin_run_experiments():
 
         threading.Thread(target=_worker, daemon=True).start()
 
+    _audit("experiment_started", scope=scope, ip=request.remote_addr)
     flash(
         f"Experiment started ({scope}). You can leave this page — "
         "results appear on the Model Comparison page when done.",
@@ -1123,10 +1572,11 @@ def dashboard():
             kpis=None,
         ), 503
 
-    # Prediction audit stats (demo rows included only while admin demo mode is on)
+    # Personal dashboard: stats, charts and history scoped to THIS user.
+    user = _current_user()
     demo_mode = bool(session.get("demo_mode"))
-    pred_count = db.count_dtdc_predictions(include_demo=demo_mode)
-    pred_rows = db.fetch_dtdc_predictions(limit=10000, include_demo=demo_mode)
+    pred_count = db.count_dtdc_predictions(user_id=user["id"], include_demo=demo_mode)
+    pred_rows = db.fetch_dtdc_predictions(limit=10000, user_id=user["id"], include_demo=demo_mode)
     if pred_rows:
         pdf = db.rows_to_dataframe(pred_rows)
         avg_pred = float(pdf["predicted_days"].mean())
@@ -1142,18 +1592,21 @@ def dashboard():
         "algorithm": _friendly_algorithm(meta.get("algorithm", "")),
     }
 
-    # Generate DTDC-based charts (cached to avoid regenerating on every request)
-    p1 = charts.plot_mode_impact()
-    p2 = charts.plot_prediction_distribution()
-    p3 = charts.plot_top_routes()
-    plots = {
-        "mode_impact": os.path.basename(p1),
-        "distribution": os.path.basename(p2),
-        "routes": os.path.basename(p3),
-    }
-    user = _current_user()
+    # Personal charts (cached per user to avoid regenerating on every request;
+    # skipped entirely until the user has data — the empty state shows instead)
+    if pred_count:
+        p1 = charts.plot_mode_impact(user_id=user["id"])
+        p2 = charts.plot_prediction_distribution(user_id=user["id"])
+        p3 = charts.plot_top_routes(user_id=user["id"])
+        plots = {
+            "mode_impact": os.path.basename(p1),
+            "distribution": os.path.basename(p2),
+            "routes": os.path.basename(p3),
+        }
+    else:
+        plots = {}
     plan_status = db.get_user_plan_status(user["id"])
-    recent = db.fetch_dtdc_predictions(limit=6, include_demo=demo_mode)
+    recent = db.fetch_dtdc_predictions(limit=6, user_id=user["id"], include_demo=demo_mode)
     return render_template(
         "dashboard.html",
         plots=plots,
@@ -1168,12 +1621,128 @@ def dashboard():
 @login_required
 def account():
     """Account page: profile, API key management, plan / usage overview,
-    prediction history and recent activity."""
+    prediction history and recent activity (scoped to this user)."""
     user = _current_user()
     plan_status = db.get_user_plan_status(user["id"])
-    recent = db.fetch_dtdc_predictions(limit=5)
+    recent = db.fetch_dtdc_predictions(limit=5, user_id=user["id"])
     return render_template(
         "account.html", user=user, plan_status=plan_status, recent=recent
+    )
+
+
+@app.route("/account/history.pdf")
+@login_required
+@limiter.limit("10 per minute")
+def account_history_pdf():
+    """Stream a real PDF report of the caller's prediction history.
+
+    Replaces the old demo-only "Download PDF" button: reportlab renders an
+    actual PDF from the user's own prediction records. Imported lazily so the
+    rarely-used export doesn't slow app startup.
+    """
+    from html import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        Paragraph,
+        SimpleDocTemplate,
+        Table,
+        TableStyle,
+    )
+
+    user = _current_user()
+    predictions = db.fetch_dtdc_predictions(limit=500, user_id=user["id"])
+
+    base = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "HistoryTitle", parent=base["Title"], fontSize=16, leading=20, spaceAfter=2
+    )
+    sub_style = ParagraphStyle(
+        "HistorySub", parent=base["Normal"], fontSize=9, leading=12,
+        textColor=colors.HexColor("#55637c"), spaceAfter=12,
+    )
+    empty_style = ParagraphStyle(
+        "HistoryEmpty", parent=base["Normal"], fontSize=10, leading=14, spaceBefore=12
+    )
+
+    story = [
+        Paragraph("CourierAI — Prediction History", title_style),
+        Paragraph(
+            f"{escape(user['full_name'])} &nbsp;·&nbsp; generated "
+            f"{datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')} "
+            f"&nbsp;·&nbsp; {len(predictions)} record(s)",
+            sub_style,
+        ),
+    ]
+
+    if predictions:
+        rows = [[
+            "Date", "Tracking ID", "Route", "Mode", "Pieces",
+            "Weight (kg)", "Predicted (days)", "Model",
+        ]]
+        for p in predictions:
+            rows.append([
+                p["created_at"],
+                p["tracking_id"] or "—",
+                f"{p['origin']} -> {p['destination']}",
+                p["mode"],
+                str(p["total_pieces"]),
+                f"{p['chargeable_weight']:g}",
+                f"{p['predicted_days']:.2f}",
+                p["model_version"],
+            ])
+        table = Table(
+            rows,
+            repeatRows=1,
+            colWidths=[34 * mm, 30 * mm, 44 * mm, 26 * mm, 13 * mm, 19 * mm, 26 * mm, 19 * mm],
+        )
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+             [colors.white, colors.HexColor("#f4f6fb")]),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d3d9e3")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(table)
+    else:
+        story.append(Paragraph(
+            "No predictions yet — run your first delivery prediction and it will "
+            "appear here.",
+            empty_style,
+        ))
+
+    # SimpleDocTemplate writes straight to the buffer we hand it.
+    doc = SimpleDocTemplate(
+        buf := io.BytesIO(),
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+        title=f"CourierAI prediction history — {user['full_name']}",
+        author="CourierAI",
+    )
+    doc.build(story)
+    buf.seek(0)
+
+    slug = (user["full_name"] or "user").strip().lower().replace(" ", "-") or "user"
+    return send_file(
+        buf,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"courierai-prediction-history-{slug}.pdf",
+        max_age=0,
     )
 
 
@@ -1261,10 +1830,12 @@ def upgrade_plan():
     """
     plan = request.form.get("plan", "")
     if plan not in config.PLANS:
+        _audit("plan_change_rejected", plan=plan, ip=request.remote_addr)
         flash("Unknown plan.", "error")
         return redirect(url_for("account"))
 
     user = _current_user()
+    _audit("plan_change", user_id=user["id"], plan=plan, ip=request.remote_addr)
     if plan == "basic":
         db.set_user_plan(user["id"], "basic", None)
         flash("Switched to the free Basic plan — 50 predictions per month.", "info")
@@ -1280,10 +1851,12 @@ def upgrade_plan():
             "unlimited predictions active. (Demo billing — no payment was processed.)",
             "success",
         )
+    # Only ever redirect to a validated same-site path — never to an
+    # attacker-controlled Referer (open-redirect hygiene).
     next_url = request.form.get("next")
     if next_url:
         return redirect(_safe_next(next_url))
-    return redirect(request.referrer or url_for("account"))
+    return redirect(url_for("account"))
 
 
 @app.route("/account/regenerate-key", methods=["POST"])
@@ -1292,6 +1865,7 @@ def upgrade_plan():
 def regenerate_api_key():
     """Issue a fresh API key, revoking the previous one immediately."""
     user = _current_user()
+    _audit("api_key_regenerated", user_id=user["id"], ip=request.remote_addr)
     api_key = _generate_api_key()
     db.set_api_key(
         user["id"],
@@ -1331,8 +1905,9 @@ def metrics_json():
             "algorithm": meta.get("algorithm", MODEL_ALGORITHM),
             "training_date": meta.get("training_date", ""),
         })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 503
+    except Exception as exc:
+        app.logger.error("Metrics unavailable: %s", exc)
+        return jsonify({"error": "Metrics temporarily unavailable."}), 503
 
 
 if __name__ == "__main__":

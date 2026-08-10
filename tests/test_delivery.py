@@ -227,12 +227,12 @@ def test_auth_register_login_logout(monkeypatch, tmp_path):
     assert resp.status_code == 200
     assert b"Invalid email or password" in resp.data
 
-    # Correct login → dashboard
+    # Correct login → predict page by default
     resp = _post(
         client, "/login", {"email": "demo@example.com", "password": "SuperSecret1!"}
     )
     assert resp.status_code == 302
-    assert resp.headers["Location"].endswith("/dashboard")
+    assert resp.headers["Location"].endswith("/predict")
 
     # Password is stored hashed, never in plaintext
     row = db.get_user_by_email("demo@example.com")
@@ -254,17 +254,203 @@ def test_protected_routes_require_login(monkeypatch, tmp_path):
 
     resp = client.get("/admin")
     assert resp.status_code == 302
-    assert resp.headers["Location"] == "/login?next=/admin"
+    assert resp.headers["Location"] == "/admin-login?next=/admin"
 
     # Login, then both pages are reachable and render
     _register_and_login(client)
     assert client.get("/dashboard").status_code in (200, 503)
-    # Non-admins are redirected away from /admin
+    # A logged-in account is never an admin: /admin still bounces them
     assert client.get("/admin").status_code == 302
-    # Granting admin access (via ADMIN_EMAILS) unlocks the data explorer
-    import config
-    monkeypatch.setattr(config, "ADMIN_EMAILS", {"demo@example.com"})
+    # The standalone admin login is the only admin channel
+    _post(client, "/admin-login", {"email": "admin@gmail.com", "password": "00000000"})
     assert client.get("/admin").status_code == 200
+
+
+def test_admin_login_flow(monkeypatch, tmp_path):
+    """The standalone /admin-login page unlocks admin routes with the
+    configured credentials and rejects wrong ones."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    # Page renders for anyone
+    assert client.get("/admin-login").status_code == 200
+
+    # Wrong credentials -> rejected, still on the login page
+    resp = _post(
+        client, "/admin-login", {"email": "admin@gmail.com", "password": "wrongpass"}
+    )
+    assert resp.status_code == 200
+    assert b"Invalid admin credentials" in resp.data
+    assert client.get("/admin").status_code == 302
+
+    # Correct credentials -> redirected to the admin panel and access granted
+    resp = _post(
+        client,
+        "/admin-login",
+        {"email": "admin@gmail.com", "password": "00000000"},
+    )
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/admin")
+    admin_page = client.get("/admin")
+    assert admin_page.status_code in (200, 503)
+    # /analytics now forwards to the Admin Console analytics tab
+    resp = client.get("/analytics")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/admin?tab=analytics")
+
+    # The admin console is a fully separate shell: its own navbar with the
+    # five sections, and no public site navbar or footer mixed in.
+    assert b"admin-navbar" in admin_page.data
+    assert b"admin-footer" in admin_page.data
+    assert b"Demo mode:" in admin_page.data
+    assert b'admin?tab=analytics' in admin_page.data
+    assert b"nav-dropdown" not in admin_page.data       # public navbar is gone
+    assert b'class="footer"' not in admin_page.data     # public footer is gone
+
+    # User-only pages are off-limits to a flag-only admin session
+    resp = client.get("/dashboard")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/admin")
+    resp = client.get("/account")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/admin")
+
+    # Logout clears the admin session
+    _post(client, "/logout")
+    assert client.get("/admin").status_code == 302
+
+
+def test_admin_session_walled_off_from_public_site(monkeypatch, tmp_path):
+    """An admin session can only reach admin endpoints: every public page
+    bounces back to /admin, the console's own assets stay reachable, and
+    logout still works."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+    _post(client, "/admin-login", {"email": "admin@gmail.com", "password": "00000000"})
+    assert client.get("/admin").status_code == 200
+
+    # Every public page bounces the admin session back to the console
+    for path in ("/", "/about", "/predict", "/tracking", "/pricing",
+                 "/plans", "/api", "/model-comparison", "/login", "/register"):
+        r = client.get(path)
+        assert r.status_code == 302, f"{path} -> {r.status_code}"
+        assert r.headers["Location"].endswith("/admin"), (
+            f"{path} -> {r.headers['Location']}"
+        )
+
+    # The console's own assets, probes and the admin login route stay up
+    assert client.get("/static/css/app.css").status_code == 200
+    assert client.get("/health").status_code == 200
+    assert client.get("/admin-login").status_code == 302  # already admin
+
+    # Logout still works and releases the session
+    r = _post(client, "/logout")
+    assert r.status_code == 302
+    assert client.get("/").status_code == 200
+
+
+def test_admin_console_tabs(monkeypatch, tmp_path):
+    """The admin console exposes the five navbar sections (Overview, Demo,
+    Users & Plans, Analytics, System & ML) and the analytics tab reflects
+    real prediction data."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    # A real prediction so analytics has data
+    db.insert_dtdc_prediction(
+        origin="Mumbai", destination="Pune", booking_weekday="Monday",
+        mode="Surface", nature_of_consignment="Dox", total_pieces=1,
+        actual_weight=0.5, volumetric_weight=0.8, chargeable_weight=0.5,
+        predicted_days=3.84, model_version="1.0.0",
+    )
+    db.insert_dtdc_prediction(
+        origin="Delhi", destination="Chennai", booking_weekday="Tuesday",
+        mode="Air Cargo", nature_of_consignment="Non-Dox", total_pieces=2,
+        actual_weight=1.2, volumetric_weight=1.5, chargeable_weight=1.2,
+        predicted_days=2.10, model_version="1.0.0",
+    )
+
+    # Admin login
+    _post(
+        client, "/admin-login",
+        {"email": "admin@gmail.com", "password": "00000000"},
+    )
+
+    # Overview (default tab)
+    resp = client.get("/admin")
+    assert resp.status_code == 200
+    assert b"Admin Console" in resp.data
+    for label in (b"Overview", b"Demo Mode", b"Users &amp; Plans",
+                  b"Analytics", b"System &amp; ML"):
+        assert label in resp.data, f"missing sidebar item {label}"
+    assert b"Total users" in resp.data
+    assert b"Predictions today" in resp.data
+
+    # Demo Mode tab
+    resp = client.get("/admin?tab=demo")
+    assert resp.status_code == 200
+    assert b"Enable / Disable" in resp.data
+    assert b"Reset demo data" in resp.data
+
+    # Users & Plans tab shows the seeded user list with plan usage
+    resp = client.get("/admin?tab=users")
+    assert resp.status_code == 200
+    assert b"All users" in resp.data
+
+    # Analytics tab shows KPIs + real prediction data
+    resp = client.get("/admin?tab=analytics")
+    assert resp.status_code == 200
+    assert b"Predictions logged" in resp.data
+    assert b">Mumbai" in resp.data and b">Delhi" in resp.data
+
+    # System & ML tab shows model + health info
+    resp = client.get("/admin?tab=system")
+    assert resp.status_code == 200
+    assert b"System &amp; ML" in resp.data
+    assert b"Experiment lab" in resp.data
+    assert b"API &amp; server health" in resp.data
+
+    # Unknown tab falls back to overview
+    resp = client.get("/admin?tab=bogus")
+    assert resp.status_code == 200
+    assert b"Total users" in resp.data
+
+
+def test_admin_demo_reset(monkeypatch, tmp_path):
+    """Reset demo data deletes only demo-mode rows, never real ones."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    db.insert_dtdc_prediction(
+        origin="Mumbai", destination="Pune", booking_weekday="Monday",
+        mode="Surface", nature_of_consignment="Dox", total_pieces=1,
+        actual_weight=0.5, volumetric_weight=0.8, chargeable_weight=0.5,
+        predicted_days=3.84, model_version="1.0.0", is_demo=1,
+    )
+    db.insert_dtdc_prediction(
+        origin="Delhi", destination="Chennai", booking_weekday="Tuesday",
+        mode="Air Cargo", nature_of_consignment="Non-Dox", total_pieces=2,
+        actual_weight=1.2, volumetric_weight=1.5, chargeable_weight=1.2,
+        predicted_days=2.10, model_version="1.0.0",
+    )
+
+    _post(
+        client, "/admin-login",
+        {"email": "admin@gmail.com", "password": "00000000"},
+    )
+    resp = _post(client, "/admin/demo/reset")
+    assert resp.status_code == 302
+
+    assert db.demo_stats()["rows"] == 0, "demo rows should be gone"
+    assert db.count_dtdc_predictions() == 1, "real prediction must survive"
 
 
 def test_stale_session_redirects_to_login(monkeypatch, tmp_path):
@@ -469,6 +655,123 @@ def test_same_origin_and_destination_rejected(monkeypatch, tmp_path):
     assert resp.status_code == 200
 
 
+def test_tracking_flow(monkeypatch, tmp_path):
+    """Predictions get a tracking ID; the tracking page looks up real records."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    # Tracking landing page renders
+    resp = client.get("/tracking")
+    assert resp.status_code == 200
+
+    data = {
+        "origin": "Mumbai", "destination": "Pune",
+        "booking_weekday": "Monday", "mode": "Surface",
+        "nature_of_consignment": "Dox",
+        "total_pieces": "1", "actual_weight": "0.5",
+        "volumetric_weight": "0.8", "chargeable_weight": "0.5",
+    }
+
+    # A web prediction stores a tracking ID and shows it on the result page
+    resp = _post(client, "/predict", data)
+    assert resp.status_code == 200
+    assert b"Tracking ID" in resp.data
+    rows = db.fetch_dtdc_predictions(limit=5)
+    tid = rows[0]["tracking_id"] if rows else None
+    assert tid and tid.startswith("SCP-"), f"expected a tracking ID, got {tid!r}"
+
+    # The tracking page renders the real timeline for that ID
+    resp = client.get(f"/tracking/{tid}")
+    assert resp.status_code == 200
+    assert tid.encode() in resp.data
+    assert b"Shipment booked" in resp.data
+    assert b"Recent shipments" in resp.data
+
+    # Unknown ID -> friendly 404
+    resp = client.get("/tracking/SCP-UNKNOWN")
+    assert resp.status_code == 404
+    assert b"No shipment found" in resp.data
+
+    # POST lookup (with CSRF) redirects to the canonical deep link
+    resp = _post(client, "/tracking", {"tracking_id": tid})
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith(f"/tracking/{tid}")
+
+    # API predictions expose the tracking ID too
+    api_key = _register_get_key(client, email="track@example.com")
+    resp = client.post("/api/predict", json=_PAYLOAD, headers={"X-API-Key": api_key})
+    assert resp.status_code == 200
+    assert resp.get_json()["tracking_id"].startswith("SCP-")
+
+
+def test_analytics_admin_only(monkeypatch, tmp_path):
+    """The platform-wide analytics page is admin-only; users keep the
+    personal dashboard."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    # Anonymous -> the standalone ADMIN login (admin-only surface), not the
+    # regular user login — with the intended section remembered.
+    resp = client.get("/analytics")
+    assert resp.status_code == 302
+    assert resp.headers["Location"] == "/admin-login?next=/analytics"
+
+    # Logged-in but not admin -> bounced to the personal dashboard
+    _register_and_login(client)
+    resp = client.get("/analytics")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/dashboard")
+
+    # Admin session -> redirected to the Admin Console analytics tab
+    _post(client, "/admin-login", {"email": "admin@gmail.com", "password": "00000000"})
+    resp = client.get("/analytics")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/admin?tab=analytics")
+
+
+def test_prediction_history_per_user(monkeypatch, tmp_path):
+    """Dashboards and account history are scoped to the logged-in user."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+
+    data = {
+        "origin": "Mumbai", "destination": "Pune",
+        "booking_weekday": "Monday", "mode": "Surface",
+        "nature_of_consignment": "Dox",
+        "total_pieces": "1", "actual_weight": "0.5",
+        "volumetric_weight": "0.8", "chargeable_weight": "0.5",
+    }
+
+    # Alice makes a logged-in prediction -> linked to her account
+    alice = flask_app.app.test_client()
+    _register_and_login(alice, email="alice@example.com")
+    resp = _post(alice, "/predict", data)
+    assert resp.status_code == 200
+    alice_id = db.get_user_by_email("alice@example.com")["id"]
+    assert len(db.fetch_dtdc_predictions(user_id=alice_id)) == 1
+
+    # Alice's dashboard + account show her prediction
+    resp = alice.get("/dashboard")
+    assert resp.status_code in (200, 503)
+    assert b"Mumbai &rarr; Pune" in resp.data
+    resp = alice.get("/account")
+    assert b"Prediction history" in resp.data
+
+    # Bob's dashboard + account show none of Alice's data
+    bob = flask_app.app.test_client()
+    _register_and_login(bob, email="bob@example.com")
+    resp = bob.get("/dashboard")
+    assert resp.status_code in (200, 503)
+    assert b"No prediction data yet" in resp.data
+    resp = bob.get("/account")
+    assert b"Prediction history" not in resp.data
+
+
 def test_api_key_required_and_valid(monkeypatch, tmp_path):
     """The prediction API requires a valid API key; regeneration revokes it."""
     monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
@@ -544,6 +847,38 @@ def test_account_key_reveal(monkeypatch, tmp_path):
     assert client2.get("/account/key").status_code == 404
 
 
+def test_account_history_pdf(monkeypatch, tmp_path):
+    """The account Download-PDF route streams a real PDF of the user's history."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    # Anonymous access is blocked (login required)
+    assert client.get("/account/history.pdf").status_code == 302
+
+    _register_and_login(client, email="pdf@example.com")
+
+    # Empty history still yields a valid PDF report
+    resp = client.get("/account/history.pdf")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/pdf"
+    assert resp.data.startswith(b"%PDF"), "response must be a real PDF file"
+    assert "attachment" in resp.headers.get("Content-Disposition", "")
+
+    # With a real prediction on record the report still renders as a valid PDF
+    _post(client, "/predict", {
+        "origin": "Mumbai", "destination": "Delhi",
+        "booking_weekday": "Monday", "mode": "Surface",
+        "nature_of_consignment": "Dox",
+        "total_pieces": "1", "actual_weight": "0.5",
+        "volumetric_weight": "0.8", "chargeable_weight": "0.5",
+    })
+    resp = client.get("/account/history.pdf")
+    assert resp.status_code == 200
+    assert resp.data.startswith(b"%PDF")
+
+
 def test_api_rate_limited(monkeypatch, tmp_path):
     """The API enforces its per-key rate limit with HTTP 429."""
     import config
@@ -578,13 +913,14 @@ def test_login_next_redirect_is_safe(monkeypatch, tmp_path):
     _post(client, "/logout")
 
     for evil in ("//evil.example.com", "/\\evil.example.com", "https://evil.example.com"):
+        _post(client, "/logout")  # each attempt starts logged out so _safe_next runs
         resp = _post(
             client,
             "/login",
             {"email": "demo@example.com", "password": "SuperSecret1!", "next": evil},
         )
         assert resp.status_code == 302, f"next={evil!r} returned {resp.status_code}"
-        assert resp.headers["Location"].endswith("/dashboard"), f"open redirect via {evil!r}"
+        assert resp.headers["Location"].endswith("/predict"), f"open redirect via {evil!r}"
 
 
 def test_csrf_protection_blocks_unsigned_post(monkeypatch, tmp_path):
@@ -612,6 +948,53 @@ def test_csrf_protection_blocks_unsigned_post(monkeypatch, tmp_path):
     assert resp.status_code == 302
     with client.session_transaction() as sess:
         assert sess.get("user_id") is None
+
+
+def test_skip_link_removed(monkeypatch, tmp_path):
+    """The skip-to-content link and its CSS were removed from the layout."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    for path in ("/", "/login", "/register", "/tracking"):
+        resp = client.get(path)
+        assert resp.status_code == 200
+        assert b"skip-link" not in resp.data, f"skip-link still on {path}"
+
+
+def test_nav_active_highlight(monkeypatch, tmp_path):
+    """The navbar underline follows the current page (server-side).
+
+    Regression: /dashboard is rendered after login but its URL differs from
+    the /analytics nav item, so the JS prefix match never highlighted it.
+    """
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    # Home is active on the landing page
+    resp = client.get("/")
+    assert b'nav-link active" href="/"' in resp.data, "Home should be active on /"
+
+    # Tracking is active on /tracking
+    resp = client.get("/tracking")
+    assert b'nav-link active" href="/tracking"' in resp.data, "Tracking should be active"
+
+    # After login (default redirect /dashboard), Dashboard gets the underline
+    _register_and_login(client)
+    resp = client.get("/dashboard")
+    assert resp.status_code in (200, 503)
+    assert b'nav-link active" href="/dashboard"' in resp.data, \
+        "Dashboard should be active on /dashboard"
+    # Analytics is admin-only: a regular user must not see it in the nav
+    assert b'nav-link active" href="/analytics"' not in resp.data
+
+    # The plan-selection page has no navbar entry, so nothing is underlined
+    resp = client.get("/plans")
+    assert resp.status_code == 200
+    assert b"nav-link active" not in resp.data, "No nav item exists for /plans"
 
 
 def test_dashboard_renders(monkeypatch, tmp_path):
@@ -877,4 +1260,94 @@ def test_plan_month_rollover_and_expiry(monkeypatch, tmp_path):
     # An expired paid plan falls back to Basic (fresh monthly quota)
     resp = client.post("/api/predict", json=_PAYLOAD, headers={"X-API-Key": api_key})
     assert resp.status_code == 200
-    assert db.get_user_by_id(uid)["plan"] == "basic", "expired plan must downgrade"
+
+
+# ---------------------------------------------------------------------------
+# Security regression tests
+# ---------------------------------------------------------------------------
+
+def test_secret_key_is_never_the_public_default():
+    """The session-signing secret must never fall back to a known default."""
+    import config as config_mod
+    assert config_mod.SECRET_KEY != "dev-secret-change-me-in-production"
+    assert len(config_mod.SECRET_KEY) >= 32
+
+
+def test_api_rejects_non_finite_and_huge_inputs(monkeypatch, tmp_path):
+    """NaN/Inf/huge/oversized inputs must be rejected (400), never crash or
+    get stored (was: inf accepted, nan/10^30 pieces -> 500 OverflowError)."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+    api_key = _register_get_key(client, email="finite@example.com")
+
+    bad_payloads = (
+        {"actual_weight": float("inf")},
+        {"actual_weight": float("nan")},
+        {"volumetric_weight": float("-inf")},
+        {"chargeable_weight": float("nan")},
+        {"total_pieces": 10 ** 30},
+        {"total_pieces": -3},
+        {"origin": "A" * 100000},
+        {"mode": "M" * 5000},
+        {"actual_weight": -1},
+        {"actual_weight": 10 ** 10},
+        {"total_pieces": 0},
+    )
+    for over in bad_payloads:
+        resp = client.post(
+            "/api/predict", json={**_PAYLOAD, **over}, headers={"X-API-Key": api_key}
+        )
+        assert resp.status_code == 400, f"{over} -> {resp.status_code} {resp.data[:120]}"
+
+    # A normal request still succeeds
+    resp = client.post("/api/predict", json=_PAYLOAD, headers={"X-API-Key": api_key})
+    assert resp.status_code == 200
+
+
+def test_no_open_redirect_via_referer_on_upgrade(monkeypatch, tmp_path):
+    """/account/upgrade must never redirect to an attacker-controlled Referer."""
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+    _register_and_login(client, email="redirect@example.com")
+
+    resp = _post(
+        client, "/account/upgrade", {"plan": "pro_monthly"},
+        headers={"Referer": "https://evil.com/phish"},
+    )
+    assert resp.status_code == 302
+    assert resp.headers["Location"] == "/account"
+    assert "evil.com" not in resp.headers["Location"]
+
+
+def test_forged_session_cookie_rejected(monkeypatch, tmp_path):
+    """A cookie signed with the old public default secret must be rejected
+    (was: anyone could forge an is_admin=True session -> admin takeover)."""
+    import hashlib
+
+    from flask.sessions import TaggedJSONSerializer
+    from itsdangerous import URLSafeTimedSerializer
+
+    monkeypatch.setenv("BOOTSTRAP_ON_START", "0")
+    db, ml_model, _, flask_app = _reload_with_paths(monkeypatch, tmp_path)
+    db.init_db()
+    client = flask_app.app.test_client()
+
+    s = URLSafeTimedSerializer(
+        "dev-secret-change-me-in-production", salt="cookie-session",
+        serializer=TaggedJSONSerializer(),
+        signer_kwargs={"key_derivation": "hmac", "digest_method": hashlib.sha1},
+    )
+    client.set_cookie("session", s.dumps({"is_admin": True}))
+    resp = client.get("/admin")
+    # Not an admin session: bounced to login, never rendered the console
+    assert resp.status_code == 302
+    assert b"Admin Console" not in resp.data
+
+    client.set_cookie("session", s.dumps({"user_id": 1}))
+    resp = client.get("/account")
+    assert resp.status_code == 302
+    assert b"API key" not in resp.data

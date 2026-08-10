@@ -18,6 +18,9 @@ env/
 *.db-shm
 *.db-wal
 
+# Auto-generated per-install session secret (never bake into images)
+instance/
+
 # Test & lint artefacts
 .pytest_cache/
 .mypy_cache/

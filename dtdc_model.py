@@ -215,10 +215,12 @@ def parse_prediction_input(
             f"booking_weekday must be a weekday name, got '{booking_weekday_s}'"
         )
 
+    import math
+
     try:
         pieces = int(total_pieces)
-        if pieces <= 0:
-            errors.append("total_pieces must be a positive integer")
+        if not 0 < pieces <= 10_000:
+            errors.append("total_pieces must be a positive integer (max 10000)")
     except (TypeError, ValueError):
         errors.append("total_pieces must be a valid integer")
 
@@ -229,10 +231,12 @@ def parse_prediction_input(
     ]:
         try:
             v = float(val)
-            if v <= 0:
-                errors.append(f"{name} must be positive")
         except (TypeError, ValueError):
             errors.append(f"{name} must be a valid number")
+        else:
+            # math.isfinite rejects NaN/Inf; the bound rejects absurd values.
+            if not math.isfinite(v) or v <= 0 or v > 1_000_000.0:
+                errors.append(f"{name} must be a positive finite number")
 
     if errors:
         raise ValueError("; ".join(errors))

@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS dtdc_predictions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tracking_id TEXT,
+    user_id INTEGER,
     origin TEXT NOT NULL,
     destination TEXT NOT NULL,
     booking_weekday TEXT NOT NULL,

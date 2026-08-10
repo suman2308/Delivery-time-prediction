@@ -1,6 +1,9 @@
 .freebuff/
 _test_venv/
 
+# Auto-generated per-install session secret (never commit)
+instance/
+
 # Raw dataset (24 MB) — not needed at runtime, pre-trained model ships as .joblib
 DTDC_Improved_Dataset.csv
 

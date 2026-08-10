@@ -13,7 +13,6 @@
   {% block head %}{% endblock %}
 </head>
 <body>
-  <a class="skip-link" href="#mainContent">Skip to content</a>
 
   <!-- Navigation -->
   <header class="navbar" role="banner">
@@ -26,48 +25,80 @@
       </a>
 
       <nav class="nav-links" id="navLinks" aria-label="Main navigation">
-        <a class="nav-link" href="{{ url_for('index') }}">
+        <a class="nav-link{% if active_nav == 'home' %} active{% endif %}" href="{{ url_for('index') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           Home
         </a>
-        <a class="nav-link" href="{{ url_for('predict_page') }}">
+        <a class="nav-link{% if active_nav == 'predict' %} active{% endif %}" href="{{ url_for('predict_page') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Predict
         </a>
-        <a class="nav-link" href="{{ url_for('tracking') }}">
+        <a class="nav-link{% if active_nav == 'tracking' %} active{% endif %}" href="{{ url_for('tracking') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
           Tracking
         </a>
-        <a class="nav-link" href="{{ url_for('analytics') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          Analytics
+        {% if current_user %}
+        <a class="nav-link{% if active_nav == 'dashboard' %} active{% endif %}" href="{{ url_for('dashboard') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
         </a>
-        <a class="nav-link" href="{{ url_for('model_comparison') }}">
+        {% endif %}
+        {% if is_admin %}
+        <div class="nav-dropdown{% if active_nav == 'admin' or active_nav == 'analytics' %} active{% endif %}">
+          <button class="dropdown-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Admin
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dropdown-menu" role="menu">
+            <a class="dropdown-item" role="menuitem" href="{{ url_for('admin', tab='demo') }}">
+              <span class="di-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </span>
+              <span>
+                <span class="di-title">Demo mode: {{ 'On' if demo_mode else 'Off' }}</span>
+                <span class="di-desc">{{ 'Turn off sample predictions' if demo_mode else 'Load sample predictions for charts' }}</span>
+              </span>
+            </a>
+            <a class="dropdown-item" role="menuitem" href="{{ url_for('admin', tab='analytics') }}">
+              <span class="di-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              </span>
+              <span>
+                <span class="di-title">Analytics</span>
+                <span class="di-desc">Platform KPIs, charts and activity</span>
+              </span>
+            </a>
+          </div>
+        </div>
+        {% endif %}
+        <a class="nav-link{% if active_nav == 'models' %} active{% endif %}" href="{{ url_for('model_comparison') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Models
         </a>
-        <a class="nav-link" href="{{ url_for('api_docs') }}">
+        <a class="nav-link{% if active_nav == 'api' %} active{% endif %}" href="{{ url_for('api_docs') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
           API
         </a>
-        <a class="nav-link" href="{{ url_for('about') }}">
+        <a class="nav-link{% if active_nav == 'about' %} active{% endif %}" href="{{ url_for('about') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           About
         </a>
-        <a class="nav-link" href="{{ url_for('contact') }}">
+        <a class="nav-link{% if active_nav == 'contact' %} active{% endif %}" href="{{ url_for('contact') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           Contact
         </a>
-        {% if is_admin %}
-        <a class="nav-link" href="{{ url_for('admin') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Admin
-        </a>
-        {% endif %}
-
         {% if current_user %}
         <div class="nav-auth-mobile">
           <a class="btn btn-outline btn-sm btn-block" href="{{ url_for('account') }}">My profile</a>
+          <form method="post" action="{{ url_for('logout') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline btn-sm btn-block">Log out</button>
+          </form>
+        </div>
+        {% elif is_admin %}
+        <div class="nav-auth-mobile">
+          <span class="badge badge-info"><span class="dot"></span> Admin session</span>
           <form method="post" action="{{ url_for('logout') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-outline btn-sm btn-block">Log out</button>
@@ -93,6 +124,17 @@
           </span>
           <span class="nav-user-name">{{ current_user['full_name'].split()[0] }}</span>
         </a>
+        <form class="nav-logout nav-auth-desktop" method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline btn-sm">Log out</button>
+        </form>
+        {% elif is_admin %}
+        <span class="nav-user" title="Standalone admin session">
+          <span class="nav-user-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </span>
+          <span class="nav-user-name">Admin</span>
+        </span>
         <form class="nav-logout nav-auth-desktop" method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-outline btn-sm">Log out</button>
@@ -141,7 +183,7 @@
           <span class="footer-title">Product</span>
           <a href="{{ url_for('predict_page') }}">Predict</a>
           <a href="{{ url_for('tracking') }}">Tracking</a>
-          <a href="{{ url_for('analytics') }}">Analytics</a>
+          <a href="{{ url_for('dashboard') }}">Dashboard</a>
           <a href="{{ url_for('model_comparison') }}">Model Comparison</a>
           <a href="{{ url_for('api_docs') }}">API</a>
         </div>
@@ -152,7 +194,7 @@
           <a href="{{ url_for('contact') }}">Contact</a>
           <a href="{{ url_for('blog') }}">Blog</a>
           <a href="{{ url_for('index') }}#faq">FAQ</a>
-          <a href="{{ url_for('register') }}">Sign up</a>
+          <a href="{{ url_for('admin_login') }}">Admin login</a>
         </div>
 
         <div class="footer-col">

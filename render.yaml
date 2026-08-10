@@ -13,4 +13,20 @@ services:
         value: "0"
       - key: FLASK_DEBUG
         value: "0"
+      # Session-signing secret — Render generates a random value once at
+      # creation. WITHOUT this, sessions/API-key encryption use a per-install
+      # generated key that changes on every deploy (users must re-login).
+      - key: SECRET_KEY
+        generateValue: true
+      # The app sits behind Render's proxy: trust X-Forwarded-* so rate
+      # limiting keys per real visitor instead of per proxy.
+      - key: TRUST_PROXY
+        value: "1"
+      # Sessions are only sent over HTTPS.
+      - key: COOKIE_SECURE
+        value: "1"
+      # IMPORTANT (security): set these in the Render dashboard. The defaults
+      # are DEMO credentials and must never be used on a public deployment.
+      # - key: ADMIN_LOGIN_EMAIL
+      # - key: ADMIN_LOGIN_PASSWORD
       # PORT is set automatically by Render at runtime

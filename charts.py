@@ -39,13 +39,19 @@ def _cache_valid(path: str) -> bool:
     return os.path.getmtime(path) > os.path.getmtime(db_path)
 
 
-def plot_mode_impact() -> str:
-    """Bar chart: average predicted delivery days by shipment mode."""
+def plot_mode_impact(user_id=None) -> str:
+    """Bar chart: average predicted delivery days by shipment mode.
+
+    user_id scopes the chart to one account (personal dashboard); None is the
+    platform-wide view (admin analytics). A per-user chart file keeps each
+    user's picture private.
+    """
     ensure_plots_dir()
-    path = os.path.join(config.PLOTS_DIR, "mode_impact.png")
+    suffix = f"_u{user_id}" if user_id is not None else ""
+    path = os.path.join(config.PLOTS_DIR, f"mode_impact{suffix}.png")
     if _cache_valid(path):
         return path
-    rows = db.fetch_dtdc_predictions(limit=10000)
+    rows = db.fetch_dtdc_predictions(limit=10000, user_id=user_id)
     if not rows:
         _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
@@ -81,13 +87,14 @@ def plot_mode_impact() -> str:
     return path
 
 
-def plot_prediction_distribution() -> str:
+def plot_prediction_distribution(user_id=None) -> str:
     """Histogram: distribution of predicted delivery days."""
     ensure_plots_dir()
-    path = os.path.join(config.PLOTS_DIR, "pred_distribution.png")
+    suffix = f"_u{user_id}" if user_id is not None else ""
+    path = os.path.join(config.PLOTS_DIR, f"pred_distribution{suffix}.png")
     if _cache_valid(path):
         return path
-    rows = db.fetch_dtdc_predictions(limit=10000)
+    rows = db.fetch_dtdc_predictions(limit=10000, user_id=user_id)
     if not rows:
         _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path
@@ -115,13 +122,14 @@ def plot_prediction_distribution() -> str:
     return path
 
 
-def plot_top_routes() -> str:
+def plot_top_routes(user_id=None) -> str:
     """Horizontal bar chart: top origin-destination pairs by prediction count."""
     ensure_plots_dir()
-    path = os.path.join(config.PLOTS_DIR, "top_routes.png")
+    suffix = f"_u{user_id}" if user_id is not None else ""
+    path = os.path.join(config.PLOTS_DIR, f"top_routes{suffix}.png")
     if _cache_valid(path):
         return path
-    rows = db.fetch_dtdc_predictions(limit=10000)
+    rows = db.fetch_dtdc_predictions(limit=10000, user_id=user_id)
     if not rows:
         _empty_chart("No predictions yet — submit a prediction to see charts", path)
         return path

@@ -15,7 +15,7 @@
         <h1 class="auth-title" style="margin:0;">{{ user['full_name'] }}</h1>
         <p class="auth-sub" style="margin:0.25rem 0 0;">{{ user['email'] }}{% if user['company'] %} &middot; {{ user['company'] }}{% endif %}</p>
       </div>
-      <button type="button" class="btn btn-outline btn-sm" id="editProfileBtn" style="margin-left:auto;">
+      <button type="button" class="btn btn-outline btn-sm" id="editProfileBtn">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
         Edit profile
       </button>
@@ -148,17 +148,22 @@
     <div class="card card-pad mt-4" style="text-align:left;">
       <div class="flex-between wrap gap-2 mb-4">
         <h2 style="margin:0;font-size:var(--text-2xl);">Prediction history</h2>
-        <a class="text-sm" href="{{ url_for('analytics') }}">View analytics</a>
+        <a class="text-sm" href="{{ url_for('dashboard') }}">View dashboard</a>
       </div>
       <div class="table-wrap">
         <table class="table table-sm">
-          <thead><tr><th>Route</th><th>Mode</th><th>Days</th><th>When</th></tr></thead>
+          <thead><tr><th>Route</th><th>Mode</th><th>Days</th><th>Tracking</th><th>When</th></tr></thead>
           <tbody>
             {% for r in recent %}
             <tr data-row>
               <td class="strong">{{ r['origin'] }} &rarr; {{ r['destination'] }}</td>
               <td><span class="badge">{{ r['mode'] }}</span></td>
               <td class="strong">{{ "%.2f"|format(r['predicted_days']) }}</td>
+              <td>
+                {% if r['tracking_id'] %}
+                <a class="strong mono" href="{{ url_for('tracking_lookup', tracking_id=r['tracking_id']) }}">{{ r['tracking_id'] }}</a>
+                {% else %}<span class="text-muted">&mdash;</span>{% endif %}
+              </td>
               <td class="text-muted text-sm">{{ (r['created_at'] or '')[:16] }}</td>
             </tr>
             {% endfor %}
@@ -190,12 +195,12 @@
       <div class="flex-between wrap gap-2">
         <div>
           <div class="text-sm" style="font-weight:600;">Download history</div>
-          <p class="text-xs text-muted" style="margin:0;">Export a record of your predictions (PDF report demo).</p>
+          <p class="text-xs text-muted" style="margin:0;">Export a PDF report of your prediction history.</p>
         </div>
-        <button type="button" class="btn btn-outline btn-sm" data-demo-download>
+        <a href="{{ url_for('account_history_pdf') }}" class="btn btn-outline btn-sm">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download PDF
-        </button>
+        </a>
       </div>
     </div>
 

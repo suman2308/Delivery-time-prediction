@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0a0f1c">
+  <title>{% block title %}Admin Console — CourierAI{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ static_version }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="admin-body">
+
+  <!-- Admin console navbar (standalone — no public site chrome) -->
+  <header class="admin-navbar" role="banner">
+    <div class="admin-navbar-inner">
+      <a class="admin-brand" href="{{ url_for('admin') }}" aria-label="CourierAI Admin console">
+        <span class="admin-brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        </span>
+        <span class="admin-brand-name">CourierAI <em>Admin</em></span>
+      </a>
+
+      <nav class="admin-nav" aria-label="Admin sections">
+        <a class="admin-nav-link{% if tab == 'overview' %} active{% endif %}" href="{{ url_for('admin', tab='overview') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Overview
+        </a>
+        <a class="admin-nav-link{% if tab == 'demo' %} active{% endif %}" href="{{ url_for('admin', tab='demo') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Demo Mode
+        </a>
+        <a class="admin-nav-link{% if tab == 'users' %} active{% endif %}" href="{{ url_for('admin', tab='users') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users &amp; Plans
+        </a>
+        <a class="admin-nav-link{% if tab == 'analytics' %} active{% endif %}" href="{{ url_for('admin', tab='analytics') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Analytics
+        </a>
+        <a class="admin-nav-link{% if tab == 'system' %} active{% endif %}" href="{{ url_for('admin', tab='system') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          System &amp; ML
+        </a>
+      </nav>
+
+      <div class="admin-nav-actions">
+        <div class="admin-user" id="adminUserMenu">
+          <button class="admin-user-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Admin account menu" title="Admin account">
+            <span class="admin-user-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <svg class="admin-user-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="admin-user-menu" role="menu">
+            <span class="admin-user-status"><span class="dot"></span> Demo mode: {{ 'On' if demo_mode else 'Off' }}</span>
+            <form method="post" action="{{ url_for('logout') }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="admin-user-logout" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Log out
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Admin content -->
+  <main class="admin-main" role="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="admin-footer" role="contentinfo">
+    <span>CourierAI Admin Console</span>
+    <span class="admin-footer-status"><span class="status-dot" aria-hidden="true"></span> Restricted area — authorised operators only</span>
+  </footer>
+
+  <!-- Toast region -->
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <script id="flashData" type="application/json">{{ messages | tojson }}</script>
+    {% endif %}
+  {% endwith %}
+
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ static_version }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

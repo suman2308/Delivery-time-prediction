@@ -18,6 +18,18 @@ services:
       - DELIVERY_DB_PATH=/app/data/delivery.db
       - FLASK_DEBUG=0
       - BOOTSTRAP_ON_START=0
+      # SECURITY: always provide a strong random secret, e.g.
+      #   SECRET_KEY=$(python -c "import secrets;print(secrets.token_hex(32))")
+      # A missing value falls back to a per-install generated key, which
+      # changes on every container rebuild (sessions invalidated).
+      - SECRET_KEY=${SECRET_KEY:-}
+      # Behind a TLS-terminating reverse proxy, trust the forwarded client IP
+      # and mark the session cookie Secure:
+      - TRUST_PROXY=0
+      - COOKIE_SECURE=0
+      # Override the DEMO admin credentials (defaults are insecure publicly):
+      # - ADMIN_LOGIN_EMAIL=${ADMIN_LOGIN_EMAIL:-admin@gmail.com}
+      # - ADMIN_LOGIN_PASSWORD=${ADMIN_LOGIN_PASSWORD:-00000000}
     restart: unless-stopped
 
 volumes:

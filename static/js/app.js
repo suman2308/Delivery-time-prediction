@@ -28,21 +28,34 @@
   (function initNav() {
     var burger = document.getElementById("navBurger");
     var links = document.getElementById("navLinks");
-    if (burger && links) {
-      burger.addEventListener("click", function () {
-        var open = links.classList.toggle("open");
-        burger.classList.toggle("open", open);
-        burger.setAttribute("aria-expanded", String(open));
-      });
-      document.addEventListener("click", function (e) {
-        if (!links.classList.contains("open")) return;
-        if (!links.contains(e.target) && !burger.contains(e.target)) {
-          links.classList.remove("open");
-          burger.classList.remove("open");
-          burger.setAttribute("aria-expanded", "false");
-        }
-      });
+    if (!burger || !links) return;
+
+    function setMenu(open) {
+      links.classList.toggle("open", open);
+      burger.classList.toggle("open", open);
+      burger.setAttribute("aria-expanded", String(open));
+      // While the phone dropdown is open, lock the page behind it so only
+      // the menu itself scrolls; the page scroll resumes when it closes.
+      document.body.style.overflow = open ? "hidden" : "";
     }
+
+    burger.addEventListener("click", function () {
+      setMenu(!links.classList.contains("open"));
+    });
+    document.addEventListener("click", function (e) {
+      if (!links.classList.contains("open")) return;
+      if (!links.contains(e.target) && !burger.contains(e.target)) {
+        setMenu(false);
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && links.classList.contains("open")) setMenu(false);
+    });
+    // If the window grows past the phone breakpoint while the dropdown is
+    // open (resize, tablet rotation), close it so the page scroll unlocks.
+    window.addEventListener("resize", function () {
+      if (links.classList.contains("open") && window.innerWidth > 900) setMenu(false);
+    });
 
     // Dropdown toggles
     document.querySelectorAll(".nav-dropdown > .dropdown-toggle").forEach(function (toggle) {
@@ -65,14 +78,29 @@
       }
     });
 
-    // Active nav link
-    var path = window.location.pathname;
-    document.querySelectorAll(".nav-link, .dropdown-item").forEach(function (link) {
-      var href = link.getAttribute("href");
-      if (!href || href.indexOf("http") === 0) return;
-      var clean = href.split("?")[0];
-      if (clean === "/" && path === "/") link.classList.add("active");
-      else if (clean !== "/" && path.indexOf(clean) === 0) link.classList.add("active");
+  })();
+
+  /* ── Admin console: profile avatar menu (Log out) ────────────────────── */
+  (function initAdminUserMenu() {
+    var wrap = document.querySelector(".admin-user");
+    var toggle = wrap && wrap.querySelector(".admin-user-toggle");
+    if (!wrap || !toggle) return;
+    toggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = wrap.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    document.addEventListener("click", function (e) {
+      if (wrap.classList.contains("open") && !e.target.closest(".admin-user")) {
+        wrap.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && wrap.classList.contains("open")) {
+        wrap.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+      }
     });
   })();
 
@@ -296,17 +324,23 @@
     document.querySelectorAll("form[data-validate]").forEach(function (form) {
       form.addEventListener("submit", function (e) {
         var valid = true;
+        var emptyFields = false;
+        var badEmail = false;
+        var boxUnchecked = false;
         form.querySelectorAll("[required]").forEach(function (input) {
           var field = input.closest(".field") || input.parentElement;
           var empty = false;
           if (input.type === "checkbox") {
             empty = !input.checked;
+            if (empty) boxUnchecked = true;
           } else {
             empty = !input.value.trim();
+            if (empty) emptyFields = true;
           }
           if (input.type === "email" && input.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
             field.classList.add("has-error");
             valid = false;
+            badEmail = true;
           } else if (empty) {
             field.classList.add("has-error");
             valid = false;
@@ -316,7 +350,13 @@
         });
         if (!valid) {
           e.preventDefault();
-          toast("Please fix the highlighted fields", "error");
+          // Specific, actionable messages instead of a generic "fix the fields".
+          var msg = emptyFields
+            ? "Please fill the required fields"
+            : badEmail
+              ? "Please enter a valid email address"
+              : "Please tick the box to continue";
+          toast(msg, "error");
         }
       });
       form.querySelectorAll(".input, .select, .textarea").forEach(function (input) {
@@ -501,63 +541,7 @@
     });
   })();
 
-  /* ── Tracking simulation ───────────────────────────────────────────────── */
-  (function initTracking() {
-    var form = document.getElementById("trackingForm");
-    if (!form) return;
-    var input = document.getElementById("trackingId");
-    var result = document.getElementById("trackingResult");
-    var submitBtn = form.querySelector("button[type=submit]");
 
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var id = input.value.trim();
-      if (!id) { toast("Enter a tracking ID to continue", "error"); return; }
-
-      // Loading state
-      result.innerHTML = '<div class="card mt-6"><div class="skeleton skeleton-block" style="height:90px;"></div><div class="mt-4"><div class="skeleton skeleton-line" style="width:60%;"></div><div class="skeleton skeleton-line" style="width:80%;"></div><div class="skeleton skeleton-line" style="width:45%;"></div></div></div>';
-      result.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      submitBtn.disabled = true;
-
-      setTimeout(function () {
-        submitBtn.disabled = false;
-        renderTracking(id);
-      }, 1200);
-    });
-
-    function renderTracking(id) {
-      // The tracking ID is user input — escape it before it reaches innerHTML
-      // to close the XSS vector (OWASP: never concatenate untrusted data into HTML).
-      var safeId = String(id).replace(/[&<>"']/g, function (c) {
-        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-      });
-      var stages = [
-        { title: "Shipment booked", text: "Label created and shipment registered in the courier network.", time: "2 days ago" },
-        { title: "Picked up by courier", text: "Consignment collected from origin hub and scanned into transit.", time: "1 day ago" },
-        { title: "In transit", text: "Moving through the route network. Currently at the regional sorting facility.", time: "12 hours ago" },
-        { title: "Out for delivery", text: "Assigned to a delivery agent for final-mile dispatch.", time: "Upcoming" },
-        { title: "Delivered", text: "Consignment handed over and proof of delivery captured.", time: "Upcoming" }
-      ];
-      var progress = 60; // percent
-      var doneCount = 2;
-      var html = '<div class="card mt-6" id="trackingCard">';
-      html += '<div class="card-head"><div><h3 style="margin:0;">Tracking ' + safeId + "</h3>";
-      html += '<p class="text-muted text-sm" style="margin:0;">Estimated delivery: <strong class="text-gradient">' + (Math.floor(Math.random() * 2) + 1) + " days</strong></p></div>";
-      html += '<span class="badge badge-primary"><span class="dot"></span> In Transit</span></div>';
-      html += '<div class="timeline">';
-      stages.forEach(function (s, i) {
-        var cls = i < doneCount ? "done" : i === doneCount ? "active" : "";
-        html += '<div class="timeline-item ' + cls + '"><span class="tl-dot"></span><div class="tl-content"><div class="tl-title">' + s.title + ' <span class="badge badge-' + (i < doneCount ? "success" : i === doneCount ? "primary" : "") + '">' + (i < doneCount ? "Completed" : i === doneCount ? "In progress" : "Pending") + "</span></div>";
-        html += '<div class="tl-meta">' + s.time + "</div><p class='text-sm text-muted' style='margin:0.5rem 0 0;'>" + s.text + "</p></div></div>";
-      });
-      html += "</div></div>";
-      html += '<div class="card mt-4"><div class="flex-between wrap gap-2 mb-4"><h3 style="margin:0;font-size:1rem;">Route progress</h3><span class="text-sm text-muted">' + progress + "%</span></div>";
-      html += '<div style="height:10px;border-radius:999px;background:var(--surface-strong);overflow:hidden;"><div style="width:' + progress + "%;height:100%;border-radius:999px;background:var(--brand-gradient);transition:width 1s var(--ease);\"></div></div>";
-      html += '<div class="flex-between text-xs text-muted mt-2"><span>Origin hub</span><span>Destination</span></div></div>';
-      result.innerHTML = html;
-      toast("Shipment located successfully", "success");
-    }
-  })();
 
   /* ── Table filtering (admin) ───────────────────────────────────────────── */
   (function initTableFilter() {
@@ -636,18 +620,7 @@
   }
   bindPredictionPreview();
 
-  /* ── Tracking demo chips ──────────────────────────────────────────────── */
-  (function initTrackingChips() {
-    document.querySelectorAll(".demo-chip").forEach(function (chip) {
-      chip.addEventListener("click", function () {
-        var input = document.getElementById("trackingId");
-        var form = document.getElementById("trackingForm");
-        if (!input || !form) return;
-        input.value = chip.getAttribute("data-chip") || "";
-        form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-      });
-    });
-  })();
+
 
   /* ── Report download + demo utility buttons ───────────────────────────── */
   (function initUtilityButtons() {
@@ -655,11 +628,6 @@
       btn.addEventListener("click", function () {
         toast("Generating PDF report…", "info");
         setTimeout(function () { window.print(); }, 350);
-      });
-    });
-    document.querySelectorAll("[data-demo-download]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        toast("Demo download started — no file was saved", "success");
       });
     });
   })();
